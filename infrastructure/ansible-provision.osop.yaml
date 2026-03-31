@@ -1,0 +1,127 @@
+# Ansible Server Provisioning Workflow
+# Inventory check, run playbook, verify, configure monitoring
+osop_version: "2.0"
+id: ansible-provision
+name: Ansible Server Provisioning and Configuration
+
+nodes:
+  - id: inventory_check
+    type: infra
+    purpose: Validate Ansible inventory and test host connectivity
+    runtime:
+      tool: ansible
+      action: ping
+      inventory: inventories/production/hosts.ini
+      group: webservers
+    outputs: [reachable_hosts, unreachable_hosts]
+    timeout_sec: 60
+    explain: |
+      Pings all hosts in the webservers group to verify SSH
+      connectivity and Python availability before running playbooks.
+
+  - id: dry_run
+    type: cli
+    purpose: Run playbook in check mode to preview changes
+    runtime:
+      command: >
+        ansible-playbook playbooks/provision.yaml
+        -i inventories/production/hosts.ini
+        --check --diff
+    inputs: [reachable_hosts]
+    outputs: [dry_run_changes]
+    timeout_sec: 300
+
+  - id: run_playbook
+    type: infra
+    purpose: Execute the provisioning playbook on target hosts
+    runtime:
+      tool: ansible
+      action: playbook
+      playbook: playbooks/provision.yaml
+      inventory: inventories/production/hosts.ini
+      extra_vars:
+        app_version: "{{APP_VERSION}}"
+        env: production
+    inputs: [dry_run_changes]
+    outputs: [playbook_result, changed_tasks]
+    timeout_sec: 900
+    retry_policy:
+      max_retries: 1
+      backoff_sec: 30
+    explain: |
+      Provisions servers with: nginx, app runtime, log rotation,
+      firewall rules, SSL certificates, and application deployment.
+
+  - id: verify_services
+    type: cli
+    purpose: Verify all provisioned services are running correctly
+    runtime:
+      command: >
+        ansible webservers -i inventories/production/hosts.ini
+        -m shell -a "systemctl is-active nginx app"
+    inputs: [playbook_result]
+    outputs: [service_status]
+    timeout_sec: 60
+
+  - id: verify_endpoints
+    type: api
+    purpose: Test application endpoints on each provisioned host
+    runtime:
+      endpoint: health-check
+      method: GET
+      url: "https://{{host}}/api/health"
+    inputs: [reachable_hosts, service_status]
+    outputs: [endpoint_status]
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 10
+    timeout_sec: 120
+
+  - id: configure_monitoring
+    type: infra
+    purpose: Register hosts with monitoring and alerting systems
+    runtime:
+      tool: ansible
+      action: playbook
+      playbook: playbooks/monitoring.yaml
+      inventory: inventories/production/hosts.ini
+      extra_vars:
+        datadog_api_key: "{{DATADOG_API_KEY}}"
+    inputs: [endpoint_status]
+    outputs: [monitoring_status]
+    timeout_sec: 300
+
+  - id: notify_complete
+    type: api
+    purpose: Send provisioning completion report to ops channel
+    runtime:
+      endpoint: slack-webhook
+      method: POST
+      url: "{{OPS_SLACK_WEBHOOK}}"
+    inputs: [playbook_result, monitoring_status, changed_tasks]
+
+edges:
+  - from: inventory_check
+    to: dry_run
+    mode: conditional
+    condition: "unreachable_hosts.count == 0"
+
+  - from: dry_run
+    to: run_playbook
+    mode: sequential
+
+  - from: run_playbook
+    to: verify_services
+    mode: sequential
+
+  - from: verify_services
+    to: verify_endpoints
+    mode: sequential
+
+  - from: verify_endpoints
+    to: configure_monitoring
+    mode: sequential
+
+  - from: configure_monitoring
+    to: notify_complete
+    mode: sequential

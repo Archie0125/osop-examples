@@ -1,0 +1,125 @@
+# ML Model Evaluation Workflow
+# Evaluate a candidate model against baseline and decide promotion or rollback.
+osop_version: "2.0"
+id: model-evaluation
+name: Model Evaluation and Promotion Pipeline
+
+nodes:
+  - id: load_test_data
+    type: db
+    purpose: Load held-out test dataset from the data warehouse
+    runtime:
+      engine: bigquery
+      connection: project.dataset.test_set
+    outputs:
+      - test_dataset
+
+  - id: run_inference
+    type: cli
+    purpose: Run candidate model inference on the test dataset
+    runtime:
+      command: "python inference.py --model ${candidate_model} --data ${test_dataset}"
+    inputs:
+      - test_dataset
+      - candidate_model
+    outputs:
+      - predictions
+    timeout_sec: 300
+
+  - id: compute_metrics
+    type: cli
+    purpose: Compute accuracy, precision, recall, F1, and latency metrics
+    runtime:
+      command: "python metrics.py --predictions ${predictions} --ground-truth ${test_dataset}"
+    inputs:
+      - predictions
+      - test_dataset
+    outputs:
+      - metric_results
+
+  - id: load_baseline
+    type: db
+    purpose: Fetch baseline metrics from the model registry
+    runtime:
+      engine: postgres
+      connection: postgresql://registry:5432/models
+    outputs:
+      - baseline_metrics
+
+  - id: compare_baseline
+    type: agent
+    purpose: Compare candidate metrics against baseline and produce a verdict
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - metric_results
+      - baseline_metrics
+    outputs:
+      - comparison_verdict
+    explain: "Agent interprets metrics holistically, not just single-threshold."
+
+  - id: generate_report
+    type: agent
+    purpose: Generate a human-readable evaluation report with charts and tables
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - metric_results
+      - comparison_verdict
+    outputs:
+      - eval_report
+
+  - id: promote_model
+    type: system
+    purpose: Promote candidate model to production in the model registry
+    runtime:
+      tool: model-registry-cli
+    inputs:
+      - candidate_model
+    outputs:
+      - promotion_status
+
+  - id: rollback_alert
+    type: system
+    purpose: Send alert that candidate model did not pass evaluation
+    runtime:
+      tool: pagerduty
+    inputs:
+      - eval_report
+    outputs:
+      - alert_status
+
+edges:
+  - from: load_test_data
+    to: run_inference
+    mode: sequential
+
+  - from: run_inference
+    to: compute_metrics
+    mode: sequential
+
+  - from: load_baseline
+    to: compare_baseline
+    mode: sequential
+    explain: "Baseline loads in parallel with inference; both feed into compare."
+
+  - from: compute_metrics
+    to: compare_baseline
+    mode: sequential
+
+  - from: compare_baseline
+    to: generate_report
+    mode: sequential
+
+  - from: generate_report
+    to: promote_model
+    mode: conditional
+    condition: "comparison_verdict.passed == true"
+
+  - from: generate_report
+    to: rollback_alert
+    mode: conditional
+    condition: "comparison_verdict.passed == false"
+    explain: "Route to promotion or rollback based on evaluation outcome."

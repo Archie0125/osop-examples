@@ -1,0 +1,131 @@
+# macOS Developer Environment Setup
+# Homebrew-based provisioning with shell config and SSH key generation
+
+osop_version: "2.0"
+id: macos-dev-env
+name: macOS Developer Environment Setup
+
+nodes:
+  - id: install_homebrew
+    type: cli
+    purpose: Install Homebrew package manager
+    runtime:
+      os: macos
+      command: >
+        /bin/bash -c "$(curl -fsSL
+        https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    timeout_sec: 300
+    explain:
+      what: Installs the Homebrew package manager for macOS
+      why: Homebrew is the standard way to manage CLI tools and apps on macOS
+
+  - id: install_cli_tools
+    type: cli
+    purpose: Install essential development CLI tools via Homebrew
+    runtime:
+      os: macos
+      command: >
+        brew install git node python@3.12 go rust
+        docker colima jq ripgrep fzf gh
+    timeout_sec: 600
+    retry_policy:
+      max_retries: 1
+      backoff_sec: 30
+
+  - id: install_apps
+    type: cli
+    purpose: Install GUI applications via Homebrew Cask
+    runtime:
+      os: macos
+      command: >
+        brew install --cask visual-studio-code iterm2
+        docker rectangle 1password
+    timeout_sec: 300
+
+  - id: configure_zsh
+    type: cli
+    purpose: Configure zsh shell with oh-my-zsh and useful plugins
+    runtime:
+      os: macos
+      command: |
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+        sed -i '' 's/plugins=(git)/plugins=(git zsh-autosuggestions docker node)/' ~/.zshrc
+    explain:
+      what: Sets up oh-my-zsh with productivity plugins
+      why: Improved shell experience with autosuggestions and completions
+
+  - id: setup_ssh
+    type: cli
+    purpose: Generate ED25519 SSH key pair for GitHub and server access
+    runtime:
+      os: macos
+      command: |
+        ssh-keygen -t ed25519 -C "${USER_EMAIL}" -f ~/.ssh/id_ed25519 -N ""
+        eval "$(ssh-agent -s)"
+        ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+        pbcopy < ~/.ssh/id_ed25519.pub
+    outputs: [ssh_public_key]
+    security:
+      credentials: [USER_EMAIL]
+    explain:
+      what: Creates SSH key and copies public key to clipboard
+      why: SSH keys are required for git push and server access
+
+  - id: clone_repos
+    type: git
+    purpose: Clone team repositories into the workspace directory
+    runtime:
+      action: clone
+      repo: git@github.com:org/main-app.git
+      branch: main
+    inputs: [ssh_public_key]
+
+  - id: verify
+    type: cli
+    purpose: Verify all tools are installed and properly configured
+    runtime:
+      os: macos
+      command: |
+        echo "=== Tool Versions ==="
+        git --version && node --version && python3 --version
+        go version && rustc --version
+        echo "=== Shell ==="
+        echo $SHELL && zsh --version
+        echo "=== SSH ==="
+        ssh-add -l
+        echo "=== All checks passed ==="
+    outputs: [verification_report]
+
+edges:
+  - from: install_homebrew
+    to: install_cli_tools
+    mode: sequential
+
+  - from: install_homebrew
+    to: install_apps
+    mode: parallel
+
+  - from: install_cli_tools
+    to: configure_zsh
+    mode: sequential
+
+  - from: install_cli_tools
+    to: setup_ssh
+    mode: parallel
+
+  - from: setup_ssh
+    to: clone_repos
+    mode: sequential
+
+  - from: configure_zsh
+    to: verify
+    mode: sequential
+
+  - from: clone_repos
+    to: verify
+    mode: sequential
+
+  - from: install_apps
+    to: verify
+    mode: sequential

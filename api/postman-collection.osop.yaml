@@ -1,0 +1,124 @@
+# API Testing Workflow (Postman-style)
+# Setup environment, authenticate, test endpoints, validate, and report.
+osop_version: "2.0"
+id: postman-collection
+name: API Test Suite Runner
+
+nodes:
+  - id: setup_env
+    type: cli
+    purpose: Initialize test environment variables and configuration
+    runtime:
+      command: "node scripts/setup-env.js --env staging"
+    outputs:
+      - base_url
+      - env_config
+
+  - id: run_auth
+    type: api
+    purpose: Authenticate and store session token for subsequent requests
+    runtime:
+      endpoint: /auth/login
+      method: POST
+      url: "${base_url}"
+    inputs:
+      - env_config
+    outputs:
+      - auth_token
+      - session_id
+    security:
+      auth: api_key
+      secret_ref: TEST_API_KEY
+    timeout_sec: 15
+
+  - id: test_users_crud
+    type: api
+    purpose: Test user CRUD endpoints - create, read, update, delete
+    runtime:
+      endpoint: /api/v1/users
+      method: POST
+      url: "${base_url}"
+    inputs:
+      - auth_token
+    outputs:
+      - users_test_result
+
+  - id: test_orders_flow
+    type: api
+    purpose: Test order lifecycle - create order, add items, checkout, confirm
+    runtime:
+      endpoint: /api/v1/orders
+      method: POST
+      url: "${base_url}"
+    inputs:
+      - auth_token
+    outputs:
+      - orders_test_result
+
+  - id: test_search
+    type: api
+    purpose: Test search and filtering endpoints with various query parameters
+    runtime:
+      endpoint: /api/v1/search
+      method: GET
+      url: "${base_url}"
+    inputs:
+      - auth_token
+    outputs:
+      - search_test_result
+
+  - id: validate_responses
+    type: cli
+    purpose: Validate all test responses against expected schemas and status codes
+    runtime:
+      command: "node scripts/validate-responses.js --strict"
+    inputs:
+      - users_test_result
+      - orders_test_result
+      - search_test_result
+    outputs:
+      - validation_summary
+
+  - id: generate_report
+    type: system
+    purpose: Generate HTML test report with pass/fail breakdown and timings
+    runtime:
+      tool: test-reporter
+    inputs:
+      - validation_summary
+    outputs:
+      - report_url
+      - pass_rate
+    explain: "Produces a shareable report similar to Newman/Postman collection runner output."
+
+edges:
+  - from: setup_env
+    to: run_auth
+    mode: sequential
+
+  - from: run_auth
+    to: test_users_crud
+    mode: sequential
+
+  - from: test_users_crud
+    to: test_orders_flow
+    mode: sequential
+
+  - from: test_orders_flow
+    to: test_search
+    mode: sequential
+    explain: "Tests run sequentially to maintain data dependencies between endpoints."
+
+  - from: test_search
+    to: validate_responses
+    mode: sequential
+
+  - from: validate_responses
+    to: generate_report
+    mode: sequential
+
+  - from: run_auth
+    to: generate_report
+    mode: error
+    condition: "auth_token == null"
+    explain: "Skip tests and report auth failure if login fails."

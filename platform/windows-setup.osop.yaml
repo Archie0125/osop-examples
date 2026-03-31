@@ -1,0 +1,128 @@
+# Windows Developer Environment Setup
+# Automated provisioning of a Windows dev machine using PowerShell and Chocolatey
+
+osop_version: "2.0"
+id: windows-dev-setup
+name: Windows Developer Environment Setup
+
+nodes:
+  - id: install_chocolatey
+    type: cli
+    purpose: Install Chocolatey package manager if not already present
+    runtime:
+      os: windows
+      command: >
+        powershell -ExecutionPolicy Bypass -Command
+        "if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+          Set-ExecutionPolicy Bypass -Scope Process -Force;
+          iex ((New-Object System.Net.WebClient).DownloadString(
+            'https://community.chocolatey.org/install.ps1'))
+        } else { Write-Host 'Chocolatey already installed' }"
+    timeout_sec: 120
+    explain:
+      what: Bootstraps the Chocolatey package manager
+      why: Chocolatey enables scriptable installation of dev tools on Windows
+
+  - id: install_tools
+    type: cli
+    purpose: Install core development tools via Chocolatey
+    runtime:
+      os: windows
+      command: >
+        powershell -Command
+        "choco install -y git nodejs python docker-desktop
+        vscode microsoft-windows-terminal googlechrome"
+    timeout_sec: 600
+    retry_policy:
+      max_retries: 1
+      backoff_sec: 60
+
+  - id: configure_path
+    type: cli
+    purpose: Ensure all installed tools are on the system PATH
+    runtime:
+      os: windows
+      command: >
+        powershell -Command
+        "$paths = @('C:\Program Files\Git\bin',
+          'C:\Program Files\nodejs',
+          'C:\Python312',
+          'C:\Python312\Scripts');
+        $current = [Environment]::GetEnvironmentVariable('PATH', 'User');
+        foreach ($p in $paths) {
+          if ($current -notlike \"*$p*\") {
+            $current = \"$current;$p\"
+          }
+        };
+        [Environment]::SetEnvironmentVariable('PATH', $current, 'User')"
+    explain:
+      what: Adds tool directories to user PATH environment variable
+      why: Some Chocolatey packages need manual PATH configuration
+
+  - id: setup_wsl
+    type: cli
+    purpose: Install and configure WSL2 with Ubuntu
+    runtime:
+      os: windows
+      command: >
+        powershell -Command
+        "wsl --install -d Ubuntu --no-launch;
+        wsl --set-default-version 2"
+    timeout_sec: 600
+    explain:
+      what: Installs WSL2 with Ubuntu distribution
+      why: WSL2 provides Linux toolchain compatibility for cross-platform dev
+
+  - id: configure_git
+    type: cli
+    purpose: Configure Git identity and default settings
+    runtime:
+      os: windows
+      command: >
+        powershell -Command
+        "git config --global core.autocrlf true;
+        git config --global init.defaultBranch main;
+        git config --global pull.rebase true"
+
+  - id: verify
+    type: cli
+    purpose: Verify all tools are installed and accessible
+    runtime:
+      os: windows
+      command: >
+        powershell -Command
+        "Write-Host '--- Verification ---';
+        git --version; node --version; python --version;
+        docker --version; code --version;
+        wsl --status;
+        Write-Host '--- All checks passed ---'"
+    outputs: [verification_report]
+
+edges:
+  - from: install_chocolatey
+    to: install_tools
+    mode: sequential
+
+  - from: install_tools
+    to: configure_path
+    mode: sequential
+
+  - from: install_tools
+    to: setup_wsl
+    mode: parallel
+
+  - from: install_tools
+    to: configure_git
+    mode: parallel
+
+  - from: configure_path
+    to: verify
+    mode: sequential
+
+  - from: setup_wsl
+    to: verify
+    mode: sequential
+
+  - from: configure_git
+    to: verify
+    mode: sequential

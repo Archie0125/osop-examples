@@ -1,0 +1,124 @@
+# GitHub Actions CI/CD Pipeline
+# Triggered on push to main: lint, test, build, deploy staging, smoke test, deploy prod
+osop_version: "2.0"
+id: github-actions-cicd
+name: GitHub Actions CI/CD Pipeline
+
+nodes:
+  - id: push_trigger
+    type: cicd
+    purpose: Trigger pipeline on push to main branch
+    subtype: github-actions
+    runtime:
+      platform: github-actions
+      trigger: push
+      branches: [main]
+    outputs: [commit_sha, branch]
+
+  - id: lint
+    type: cli
+    purpose: Run linting checks on codebase
+    runtime:
+      command: npm run lint
+    timeout_sec: 120
+    inputs: [commit_sha]
+
+  - id: test
+    type: cli
+    purpose: Run unit and integration test suites
+    runtime:
+      command: npm test -- --coverage
+    timeout_sec: 300
+    inputs: [commit_sha]
+    outputs: [coverage_report]
+
+  - id: build
+    type: cli
+    purpose: Build production artifacts
+    runtime:
+      command: npm run build
+    timeout_sec: 180
+    outputs: [build_artifact, build_version]
+
+  - id: deploy_staging
+    type: cicd
+    purpose: Deploy build artifact to staging environment
+    subtype: github-actions
+    runtime:
+      platform: github-actions
+      action: deploy
+      environment: staging
+    inputs: [build_artifact]
+    outputs: [staging_url]
+    explain: |
+      Deploys to staging using environment-specific secrets.
+      The staging URL is dynamically generated per deployment.
+
+  - id: smoke_test
+    type: api
+    purpose: Run smoke tests against staging deployment
+    runtime:
+      endpoint: health-check
+      method: GET
+      url: "{{staging_url}}/api/health"
+    inputs: [staging_url]
+    outputs: [smoke_result]
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 15
+    timeout_sec: 60
+
+  - id: prod_approval
+    type: human
+    purpose: Manual approval gate before production deployment
+    role: release-manager
+    approval_gate:
+      required_approvers: 1
+      timeout_min: 60
+    explain: |
+      A release manager must review staging smoke test results
+      and approve the production deployment.
+
+  - id: deploy_prod
+    type: cicd
+    purpose: Deploy to production environment
+    subtype: github-actions
+    runtime:
+      platform: github-actions
+      action: deploy
+      environment: production
+    inputs: [build_artifact]
+    outputs: [prod_url]
+    security:
+      require_signed_commits: true
+
+edges:
+  - from: push_trigger
+    to: lint
+    mode: sequential
+
+  - from: lint
+    to: test
+    mode: sequential
+
+  - from: test
+    to: build
+    mode: conditional
+    condition: "test.exit_code == 0"
+
+  - from: build
+    to: deploy_staging
+    mode: sequential
+
+  - from: deploy_staging
+    to: smoke_test
+    mode: sequential
+
+  - from: smoke_test
+    to: prod_approval
+    mode: conditional
+    condition: "smoke_result.status == 'healthy'"
+
+  - from: prod_approval
+    to: deploy_prod
+    mode: sequential

@@ -1,0 +1,119 @@
+# Terraform AWS Infrastructure Workflow
+# Plan, human review, apply, verify, update state
+osop_version: "2.0"
+id: terraform-aws
+name: Terraform AWS Plan and Apply Workflow
+
+nodes:
+  - id: tf_init
+    type: infra
+    purpose: Initialize Terraform working directory and backend
+    runtime:
+      tool: terraform
+      action: init
+      backend: s3
+      backend_config:
+        bucket: terraform-state-prod
+        key: infra/terraform.tfstate
+        region: us-east-1
+    outputs: [init_status]
+    timeout_sec: 120
+
+  - id: tf_validate
+    type: infra
+    purpose: Validate Terraform configuration syntax and consistency
+    runtime:
+      tool: terraform
+      action: validate
+    inputs: [init_status]
+    outputs: [validation_result]
+    timeout_sec: 30
+
+  - id: tf_plan
+    type: infra
+    purpose: Generate Terraform execution plan showing changes
+    runtime:
+      tool: terraform
+      action: plan
+      var_file: environments/production.tfvars
+      out: tfplan.out
+    inputs: [validation_result]
+    outputs: [plan_output, resource_changes]
+    timeout_sec: 300
+    explain: |
+      Creates a saved plan file showing all resources to be
+      added, changed, or destroyed. The plan is saved for
+      exact apply to prevent drift between plan and apply.
+
+  - id: human_review
+    type: human
+    purpose: Infrastructure team reviews the Terraform plan
+    role: platform-engineer
+    inputs: [plan_output, resource_changes]
+    approval_gate:
+      required_approvers: 2
+      timeout_min: 120
+    explain: |
+      Two platform engineers must approve the plan. They verify
+      no unexpected resource deletions, cost impact is acceptable,
+      and security groups/IAM changes are intentional.
+
+  - id: tf_apply
+    type: infra
+    purpose: Apply the approved Terraform plan
+    runtime:
+      tool: terraform
+      action: apply
+      plan_file: tfplan.out
+    inputs: [plan_output]
+    outputs: [apply_result, resource_outputs]
+    timeout_sec: 900
+
+  - id: verify_infra
+    type: api
+    purpose: Verify deployed infrastructure is healthy
+    runtime:
+      endpoint: health-checks
+      method: GET
+      url: "https://{{resource_outputs.lb_dns}}/health"
+    inputs: [resource_outputs]
+    outputs: [health_status]
+    retry_policy:
+      max_retries: 5
+      backoff_sec: 15
+    timeout_sec: 120
+
+  - id: notify_complete
+    type: api
+    purpose: Notify team of successful infrastructure update
+    runtime:
+      endpoint: slack-webhook
+      method: POST
+      url: "{{SLACK_WEBHOOK_URL}}"
+    inputs: [apply_result, health_status]
+
+edges:
+  - from: tf_init
+    to: tf_validate
+    mode: sequential
+
+  - from: tf_validate
+    to: tf_plan
+    mode: conditional
+    condition: "validation_result.valid == true"
+
+  - from: tf_plan
+    to: human_review
+    mode: sequential
+
+  - from: human_review
+    to: tf_apply
+    mode: sequential
+
+  - from: tf_apply
+    to: verify_infra
+    mode: sequential
+
+  - from: verify_infra
+    to: notify_complete
+    mode: sequential

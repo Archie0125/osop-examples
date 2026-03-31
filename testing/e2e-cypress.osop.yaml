@@ -1,0 +1,115 @@
+# End-to-End Testing with Cypress
+# Setup environment, run tests, collect artifacts, report, notify
+osop_version: "2.0"
+id: e2e-cypress
+name: Cypress E2E Test Pipeline
+
+nodes:
+  - id: setup_env
+    type: docker
+    purpose: Spin up application stack for E2E testing
+    runtime:
+      action: compose-up
+      compose_file: docker-compose.test.yaml
+      services: [app, db, redis]
+    outputs: [app_url, container_ids]
+    timeout_sec: 180
+
+  - id: wait_ready
+    type: cli
+    purpose: Wait for application to be ready and responsive
+    runtime:
+      command: npx wait-on http://localhost:3000 --timeout 30000
+    inputs: [app_url]
+    timeout_sec: 45
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 5
+
+  - id: seed_test_data
+    type: cli
+    purpose: Seed the database with test fixtures
+    runtime:
+      command: npm run db:seed -- --env test
+    inputs: [container_ids]
+    timeout_sec: 60
+
+  - id: run_cypress
+    type: cli
+    purpose: Execute Cypress E2E test suite
+    runtime:
+      command: npx cypress run --browser chrome --reporter mochawesome
+      env:
+        CYPRESS_BASE_URL: "http://localhost:3000"
+        CYPRESS_RECORD_KEY: "{{CYPRESS_KEY}}"
+    inputs: [app_url]
+    outputs: [test_results, exit_code]
+    timeout_sec: 900
+    explain: |
+      Runs the full Cypress suite headlessly in Chrome.
+      Mochawesome reporter generates HTML reports with screenshots.
+
+  - id: collect_artifacts
+    type: cli
+    purpose: Collect screenshots and videos from failed tests
+    runtime:
+      command: >
+        tar czf cypress-artifacts.tar.gz
+        cypress/screenshots/ cypress/videos/ mochawesome-report/
+    inputs: [test_results]
+    outputs: [artifacts_archive]
+
+  - id: generate_report
+    type: cli
+    purpose: Merge and generate consolidated HTML test report
+    runtime:
+      command: npx mochawesome-merge && npx marge mochawesome.json --reportDir report
+    inputs: [test_results]
+    outputs: [report_url]
+
+  - id: notify_team
+    type: api
+    purpose: Send test results summary to Slack channel
+    runtime:
+      endpoint: slack-notification
+      method: POST
+      url: "{{SLACK_WEBHOOK_URL}}"
+    inputs: [report_url, exit_code]
+
+  - id: teardown
+    type: docker
+    purpose: Tear down test environment containers
+    runtime:
+      action: compose-down
+      compose_file: docker-compose.test.yaml
+      volumes: true
+    inputs: [container_ids]
+
+edges:
+  - from: setup_env
+    to: wait_ready
+    mode: sequential
+
+  - from: wait_ready
+    to: seed_test_data
+    mode: sequential
+
+  - from: seed_test_data
+    to: run_cypress
+    mode: sequential
+
+  - from: run_cypress
+    to: collect_artifacts
+    mode: sequential
+
+  - from: run_cypress
+    to: generate_report
+    mode: parallel
+
+  - from: generate_report
+    to: notify_team
+    mode: sequential
+
+  - from: notify_team
+    to: teardown
+    mode: sequential

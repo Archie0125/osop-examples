@@ -1,0 +1,105 @@
+# Test-Driven Development Workflow
+# Red-Green-Refactor cycle: write test, implement, run, refactor, commit
+osop_version: "2.0"
+id: tdd-workflow
+name: TDD Red-Green-Refactor Cycle
+
+nodes:
+  - id: write_failing_test
+    type: human
+    purpose: Write a new failing test case for the desired behavior
+    role: developer
+    outputs: [test_file, test_name]
+    explain: |
+      The developer writes a test that describes the expected behavior
+      before any implementation exists. The test must fail initially (Red).
+
+  - id: run_test_red
+    type: cli
+    purpose: Run the test suite to confirm the new test fails
+    runtime:
+      command: npm test -- --grep "{{test_name}}"
+    inputs: [test_file]
+    outputs: [test_result_red]
+    timeout_sec: 60
+
+  - id: implement_code
+    type: human
+    purpose: Write the minimum code to make the failing test pass
+    role: developer
+    inputs: [test_name, test_result_red]
+    outputs: [source_file]
+    explain: |
+      Write just enough production code to make the test pass.
+      Avoid over-engineering; keep changes minimal.
+
+  - id: run_test_green
+    type: cli
+    purpose: Run tests to verify all pass including the new one
+    runtime:
+      command: npm test
+    inputs: [source_file, test_file]
+    outputs: [test_result_green]
+    timeout_sec: 120
+
+  - id: refactor
+    type: human
+    purpose: Refactor code while keeping all tests green
+    role: developer
+    inputs: [source_file, test_result_green]
+    outputs: [refactored_files]
+    explain: |
+      Improve code quality, remove duplication, and clean up naming.
+      Run tests frequently during refactoring to ensure nothing breaks.
+
+  - id: run_test_final
+    type: cli
+    purpose: Final test run to confirm refactoring preserved behavior
+    runtime:
+      command: npm test -- --coverage
+    inputs: [refactored_files]
+    outputs: [final_result, coverage]
+    timeout_sec: 120
+
+  - id: commit
+    type: git
+    purpose: Commit the passing test and implementation
+    runtime:
+      action: commit
+      message: "feat: {{test_name}} - TDD cycle complete"
+      add: [test_file, source_file, refactored_files]
+    inputs: [final_result]
+
+edges:
+  - from: write_failing_test
+    to: run_test_red
+    mode: sequential
+
+  - from: run_test_red
+    to: implement_code
+    mode: conditional
+    condition: "test_result_red.exit_code != 0"
+
+  - from: implement_code
+    to: run_test_green
+    mode: sequential
+
+  - from: run_test_green
+    to: refactor
+    mode: conditional
+    condition: "test_result_green.exit_code == 0"
+
+  - from: refactor
+    to: run_test_final
+    mode: sequential
+
+  - from: run_test_final
+    to: commit
+    mode: conditional
+    condition: "final_result.exit_code == 0"
+
+  # Loop back for the next feature/behavior
+  - from: commit
+    to: write_failing_test
+    mode: loop
+    condition: "developer.has_next_feature == true"

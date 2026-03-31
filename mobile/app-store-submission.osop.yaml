@@ -1,0 +1,135 @@
+# App Store Submission Workflow
+# End-to-end submission with AI-assisted release notes and rejection handling
+
+osop_version: "2.0"
+id: app-store-submission
+name: App Store Submission Workflow
+
+nodes:
+  - id: prepare_screenshots
+    type: human
+    purpose: Capture and upload localized screenshots for all required device sizes
+    role: qa_engineer
+    outputs: [screenshot_set]
+    explain:
+      what: Human prepares App Store screenshots per device and locale
+      why: Apple requires specific screenshot dimensions for each device class
+
+  - id: write_release_notes
+    type: agent
+    purpose: Draft release notes from recent commit history and JIRA tickets
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs: [changelog, jira_tickets]
+    outputs: [release_notes_draft]
+    explain:
+      what: AI analyzes commits and tickets to generate user-facing release notes
+      why: Consistent, well-written notes improve store listing quality
+
+  - id: human_review_notes
+    type: human
+    purpose: Review and approve AI-generated release notes
+    role: product_manager
+    inputs: [release_notes_draft]
+    outputs: [release_notes_final]
+    approval_gate:
+      required: true
+      approvers: [product_manager]
+
+  - id: submit_review
+    type: api
+    purpose: Submit app build for Apple review via App Store Connect
+    runtime:
+      endpoint: appstoreconnect
+      method: POST
+      url: https://api.appstoreconnect.apple.com/v1/appStoreVersionSubmissions
+    inputs: [screenshot_set, release_notes_final, build_id]
+    outputs: [submission_id]
+    security:
+      credentials: [APP_STORE_CONNECT_KEY]
+
+  - id: monitor_status
+    type: system
+    subtype: polling
+    purpose: Poll App Store Connect for review status changes
+    runtime:
+      interval_sec: 900
+      max_polls: 192  # up to 48 hours
+    inputs: [submission_id]
+    outputs: [review_status]
+    timeout_sec: 172800
+
+  - id: handle_rejection
+    type: human
+    purpose: Investigate rejection reasons and prepare resubmission
+    role: dev_lead
+    inputs: [rejection_reasons]
+    outputs: [fix_applied]
+    explain:
+      what: Developer reviews Apple's rejection feedback and addresses issues
+      why: Rejections require human judgment to interpret and resolve correctly
+
+  - id: handle_approval
+    type: api
+    purpose: Release approved build to App Store and notify stakeholders
+    runtime:
+      endpoint: appstoreconnect
+      method: PATCH
+      url: https://api.appstoreconnect.apple.com/v1/appStoreVersions/${version_id}
+    inputs: [submission_id]
+
+  - id: notify_team
+    type: api
+    purpose: Notify team of final submission outcome
+    runtime:
+      endpoint: slack
+      method: POST
+      url: https://hooks.slack.com/services/${WEBHOOK_ID}
+    inputs: [review_status]
+
+edges:
+  - from: prepare_screenshots
+    to: write_release_notes
+    mode: parallel
+
+  - from: write_release_notes
+    to: human_review_notes
+    mode: sequential
+
+  - from: human_review_notes
+    to: submit_review
+    mode: sequential
+
+  - from: prepare_screenshots
+    to: submit_review
+    mode: sequential
+
+  - from: submit_review
+    to: monitor_status
+    mode: sequential
+
+  # Conditional routing based on review outcome
+  - from: monitor_status
+    to: handle_approval
+    mode: conditional
+    condition: review_status == "approved"
+
+  - from: monitor_status
+    to: handle_rejection
+    mode: conditional
+    condition: review_status == "rejected"
+
+  # Rejection loops back to fix and resubmit
+  - from: handle_rejection
+    to: submit_review
+    mode: loop
+    condition: fix_applied == true
+
+  - from: handle_approval
+    to: notify_team
+    mode: sequential
+
+  - from: handle_rejection
+    to: notify_team
+    mode: sequential

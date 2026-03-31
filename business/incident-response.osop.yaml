@@ -1,0 +1,153 @@
+# Incident Response Workflow
+# AI triage with severity-based routing, auto-remediation, and post-mortem
+
+osop_version: "2.0"
+id: incident-response
+name: Incident Response Workflow
+
+nodes:
+  - id: alert_triggered
+    type: api
+    purpose: Receive alert from monitoring system (PagerDuty, Datadog, etc.)
+    runtime:
+      endpoint: webhook
+      method: POST
+      url: /api/incidents/ingest
+    outputs: [alert_id, service, metric, threshold]
+
+  - id: ai_triage
+    type: agent
+    purpose: AI classifies incident severity and identifies likely root cause
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs: [alert_id, service, metric, recent_deploys, runbook]
+    outputs: [severity, root_cause_hypothesis, recommended_action]
+    timeout_sec: 30
+    explain:
+      what: Analyzes alert context, recent deploys, and historical patterns
+      why: Faster triage reduces MTTR — AI handles P3/P4 without waking humans
+
+  - id: severity_router
+    type: system
+    subtype: router
+    purpose: Route incident based on AI-assessed severity level
+    inputs: [severity]
+    outputs: [route]
+
+  - id: auto_remediate
+    type: cli
+    purpose: Execute automated remediation for low-severity incidents
+    runtime:
+      os: linux
+      command: |
+        ./runbooks/${service}/remediate.sh \
+          --action ${recommended_action} \
+          --alert-id ${alert_id}
+    inputs: [service, recommended_action, alert_id]
+    outputs: [remediation_result]
+    timeout_sec: 300
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 15
+    explain:
+      what: Runs pre-approved remediation scripts (restart, scale, rollback)
+      why: P3/P4 incidents with known fixes should resolve without human intervention
+
+  - id: escalate
+    type: api
+    purpose: Page on-call engineer for high-severity incidents
+    runtime:
+      endpoint: pagerduty
+      method: POST
+      url: https://api.pagerduty.com/incidents
+    inputs: [alert_id, severity, root_cause_hypothesis]
+    outputs: [incident_id, responder]
+    security:
+      credentials: [PAGERDUTY_API_KEY]
+
+  - id: human_investigate
+    type: human
+    purpose: On-call engineer investigates and applies manual fix
+    role: sre_oncall
+    inputs: [incident_id, root_cause_hypothesis, service]
+    outputs: [actual_root_cause, fix_description]
+    timeout_sec: 7200
+
+  - id: apply_fix
+    type: cli
+    purpose: Deploy hotfix or configuration change to resolve the incident
+    runtime:
+      os: linux
+      command: |
+        ./deploy.sh --hotfix --service ${service} \
+          --change "${fix_description}"
+    inputs: [service, fix_description]
+    outputs: [fix_deployed]
+
+  - id: post_mortem
+    type: human
+    purpose: Conduct blameless post-mortem and document learnings
+    role: engineering_manager
+    inputs: [incident_id, actual_root_cause, fix_description]
+    outputs: [post_mortem_doc, action_items]
+    explain:
+      what: Team reviews timeline, root cause, and improvement actions
+      why: Post-mortems drive systemic reliability improvements
+
+  - id: update_runbook
+    type: agent
+    purpose: AI updates runbook with new remediation steps from post-mortem
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs: [post_mortem_doc, action_items, service]
+    outputs: [updated_runbook]
+
+edges:
+  - from: alert_triggered
+    to: ai_triage
+    mode: sequential
+
+  - from: ai_triage
+    to: severity_router
+    mode: sequential
+
+  # Low severity — auto-remediate
+  - from: severity_router
+    to: auto_remediate
+    mode: conditional
+    condition: severity in ["P3", "P4"]
+
+  # High severity — escalate to human
+  - from: severity_router
+    to: escalate
+    mode: conditional
+    condition: severity in ["P1", "P2"]
+
+  - from: escalate
+    to: human_investigate
+    mode: sequential
+
+  - from: human_investigate
+    to: apply_fix
+    mode: sequential
+
+  # Auto-remediation failure falls back to escalation
+  - from: auto_remediate
+    to: escalate
+    mode: fallback
+    condition: remediation_result == "failed"
+
+  # Triage failure falls back to direct escalation
+  - from: ai_triage
+    to: escalate
+    mode: error
+
+  - from: apply_fix
+    to: post_mortem
+    mode: sequential
+
+  - from: post_mortem
+    to: update_runbook
+    mode: sequential

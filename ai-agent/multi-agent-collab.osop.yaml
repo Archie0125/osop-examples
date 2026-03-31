@@ -1,0 +1,90 @@
+# Multi-Agent Collaboration Workflow
+# Planner breaks down tasks, executor implements, validator checks, human reviews.
+osop_version: "2.0"
+id: multi-agent-collab
+name: Multi-Agent Collaboration Pipeline
+
+nodes:
+  - id: planner
+    type: agent
+    purpose: Break down user goal into actionable subtasks with dependencies
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - user_goal
+    outputs:
+      - task_plan
+    message_contract:
+      format: json
+      schema: { tasks: "array", dependencies: "object", priority: "string" }
+    timeout_sec: 60
+
+  - id: executor
+    type: agent
+    purpose: Execute each subtask from the plan and produce artifacts
+    runtime:
+      provider: openai
+      model: gpt-4o
+    inputs:
+      - task_plan
+    outputs:
+      - execution_results
+    message_contract:
+      format: json
+      schema: { task_id: "string", status: "string", output: "any" }
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 5
+    handoff:
+      from: planner
+      context_keys: [task_plan, priority]
+    timeout_sec: 120
+
+  - id: validator
+    type: agent
+    purpose: Validate executor output against acceptance criteria from the plan
+    runtime:
+      provider: google
+      model: gemini-2.0-flash
+    inputs:
+      - execution_results
+      - task_plan
+    outputs:
+      - validation_report
+    message_contract:
+      format: json
+      schema: { passed: "boolean", issues: "array", score: "number" }
+    handoff:
+      from: executor
+      context_keys: [execution_results]
+
+  - id: human_review
+    type: human
+    purpose: Final review of validation report and approval to ship
+    role: project_lead
+    approval_gate: true
+    inputs:
+      - validation_report
+    outputs:
+      - approval_decision
+    explain: "Human reviews the validator report and decides whether to approve or request rework."
+
+edges:
+  - from: planner
+    to: executor
+    mode: sequential
+
+  - from: executor
+    to: validator
+    mode: sequential
+
+  - from: validator
+    to: human_review
+    mode: sequential
+
+  - from: human_review
+    to: planner
+    mode: conditional
+    condition: "approval_decision == 'rework'"
+    explain: "If human requests rework, loop back to planner with feedback."

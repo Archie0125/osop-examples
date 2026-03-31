@@ -1,0 +1,98 @@
+# Load Testing with k6
+# Configure, run load test, analyze metrics, report, alert on regression
+osop_version: "2.0"
+id: load-test-k6
+name: k6 Load Testing and Performance Analysis
+
+nodes:
+  - id: configure_k6
+    type: cli
+    purpose: Prepare k6 test scripts and thresholds configuration
+    runtime:
+      command: >
+        k6 inspect --execution-requirements scripts/load-test.js
+    outputs: [test_config, baseline_thresholds]
+    timeout_sec: 30
+
+  - id: run_load_test
+    type: cli
+    purpose: Execute k6 load test against target environment
+    runtime:
+      command: >
+        k6 run scripts/load-test.js
+        --out json=results.json
+        --out csv=results.csv
+        --vus 100 --duration 5m
+      env:
+        K6_TARGET_URL: "https://staging.example.com"
+    inputs: [test_config]
+    outputs: [raw_results, summary_metrics]
+    timeout_sec: 600
+    explain: |
+      Runs with 100 virtual users for 5 minutes.
+      Outputs both JSON (for analysis) and CSV (for reporting).
+
+  - id: analyze_metrics
+    type: agent
+    purpose: Analyze load test results and compare against baselines
+    runtime:
+      provider: openai
+      model: gpt-4
+    inputs: [raw_results, baseline_thresholds]
+    outputs: [analysis_report, regression_detected]
+    explain: |
+      The AI agent compares p95 latency, error rates, and throughput
+      against historical baselines. It identifies regressions and
+      provides recommendations for performance improvements.
+
+  - id: generate_report
+    type: cli
+    purpose: Generate visual performance report with charts
+    runtime:
+      command: >
+        k6 report results.json --output report.html
+    inputs: [raw_results, analysis_report]
+    outputs: [report_file]
+
+  - id: upload_report
+    type: api
+    purpose: Upload performance report to shared storage
+    runtime:
+      endpoint: s3-upload
+      method: PUT
+      url: "https://s3.amazonaws.com/perf-reports/{{run_id}}/report.html"
+    inputs: [report_file]
+    outputs: [report_url]
+
+  - id: alert_regression
+    type: api
+    purpose: Alert engineering team about performance regression
+    runtime:
+      endpoint: pagerduty
+      method: POST
+      url: "https://events.pagerduty.com/v2/enqueue"
+    inputs: [analysis_report, report_url]
+    security:
+      credentials_source: env_var
+
+edges:
+  - from: configure_k6
+    to: run_load_test
+    mode: sequential
+
+  - from: run_load_test
+    to: analyze_metrics
+    mode: sequential
+
+  - from: analyze_metrics
+    to: generate_report
+    mode: sequential
+
+  - from: generate_report
+    to: upload_report
+    mode: sequential
+
+  - from: upload_report
+    to: alert_regression
+    mode: conditional
+    condition: "regression_detected == true"

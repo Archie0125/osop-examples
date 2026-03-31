@@ -1,0 +1,108 @@
+# OpenAPI to OSOP Conversion Workflow
+# Fetch an OpenAPI spec, parse it, generate an OSOP workflow, validate, and save.
+osop_version: "2.0"
+id: openapi-to-osop
+name: OpenAPI Spec to OSOP Workflow Converter
+
+nodes:
+  - id: fetch_spec
+    type: api
+    purpose: Fetch OpenAPI specification from a remote URL or registry
+    runtime:
+      endpoint: /specs/latest
+      method: GET
+      url: https://api-registry.internal
+    outputs:
+      - openapi_spec
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 5
+    timeout_sec: 30
+
+  - id: parse_spec
+    type: cli
+    purpose: Parse and normalize the OpenAPI spec into a structured intermediate format
+    runtime:
+      command: "npx @redocly/cli bundle ${openapi_spec} --output parsed.json --dereferenced"
+    inputs:
+      - openapi_spec
+    outputs:
+      - parsed_endpoints
+      - parsed_schemas
+    explain: "Dereferences all $ref pointers and normalizes to a flat structure."
+
+  - id: generate_osop
+    type: agent
+    purpose: Convert parsed endpoints into an OSOP workflow with nodes and edges
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - parsed_endpoints
+      - parsed_schemas
+    outputs:
+      - osop_yaml
+    timeout_sec: 60
+    explain: "Maps each endpoint to an api node, infers edges from data dependencies."
+
+  - id: validate_osop
+    type: cli
+    purpose: Validate generated OSOP YAML against the v2.0 schema
+    runtime:
+      command: "osop validate --schema v2.0 --input ${osop_yaml}"
+    inputs:
+      - osop_yaml
+    outputs:
+      - validation_result
+
+  - id: fix_errors
+    type: agent
+    purpose: Auto-fix validation errors in the generated OSOP file
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - osop_yaml
+      - validation_result
+    outputs:
+      - fixed_osop_yaml
+
+  - id: save_workflow
+    type: cli
+    purpose: Save the validated OSOP workflow file to the repository
+    runtime:
+      command: "cp ${osop_yaml} workflows/ && echo 'Saved successfully'"
+    inputs:
+      - osop_yaml
+    outputs:
+      - saved_path
+
+edges:
+  - from: fetch_spec
+    to: parse_spec
+    mode: sequential
+
+  - from: parse_spec
+    to: generate_osop
+    mode: sequential
+
+  - from: generate_osop
+    to: validate_osop
+    mode: sequential
+
+  - from: validate_osop
+    to: save_workflow
+    mode: conditional
+    condition: "validation_result.valid == true"
+
+  - from: validate_osop
+    to: fix_errors
+    mode: conditional
+    condition: "validation_result.valid == false"
+    explain: "If validation fails, attempt auto-fix before saving."
+
+  - from: fix_errors
+    to: validate_osop
+    mode: loop
+    condition: "retry_count < 3"
+    explain: "Retry fix-validate loop up to 3 times before failing."

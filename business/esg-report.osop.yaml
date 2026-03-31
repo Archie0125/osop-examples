@@ -1,0 +1,151 @@
+# ESG Reporting Workflow
+# Data collection, AI extraction, validation, and regulatory submission
+
+osop_version: "2.0"
+id: esg-report
+name: ESG Reporting Workflow
+
+observability:
+  tracing: true
+  log_level: info
+  audit_trail: required
+
+ledger:
+  enabled: true
+  storage: s3://compliance-ledger/esg/
+
+nodes:
+  - id: collect_data
+    type: db
+    purpose: Gather ESG data from internal and external sources
+    runtime:
+      engine: postgresql
+      query: |
+        SELECT emissions, energy_usage, waste, water, social_metrics
+        FROM sustainability_data
+        WHERE fiscal_year = ${FISCAL_YEAR}
+    outputs: [raw_emissions, raw_energy, raw_social, raw_governance]
+    explain:
+      what: Pulls environmental, social, and governance metrics from data warehouse
+      why: Single source of truth for all ESG calculations and disclosures
+
+  - id: fetch_external
+    type: api
+    purpose: Retrieve external ESG benchmarks and regulatory thresholds
+    runtime:
+      endpoint: esg_provider
+      method: GET
+      url: https://api.msci.com/esg/v2/benchmarks/${INDUSTRY_CODE}
+    outputs: [industry_benchmarks, regulatory_thresholds]
+    security:
+      credentials: [MSCI_API_KEY]
+
+  - id: ai_extract
+    type: agent
+    purpose: AI processes raw data to calculate ESG metrics per GRI and SASB standards
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs: [raw_emissions, raw_energy, raw_social, raw_governance, industry_benchmarks]
+    outputs: [scope1, scope2, scope3, diversity_index, governance_score, narrative]
+    explain:
+      what: Calculates Scope 1/2/3 emissions, diversity metrics, governance scores
+      why: Standardized extraction ensures consistency across reporting periods
+
+  - id: validate
+    type: api
+    purpose: Validate computed metrics against GRI/SASB/TCFD standard schemas
+    runtime:
+      endpoint: validator
+      method: POST
+      url: https://esg-validator.internal/api/validate
+    inputs: [scope1, scope2, scope3, diversity_index, governance_score]
+    outputs: [validation_result, warnings]
+    retry_policy:
+      max_retries: 1
+      backoff_sec: 10
+
+  - id: human_review
+    type: human
+    purpose: Sustainability officer reviews metrics, narrative, and validation warnings
+    role: sustainability_officer
+    inputs: [scope1, scope2, scope3, narrative, validation_result, warnings]
+    outputs: [review_decision, corrections]
+    approval_gate:
+      required: true
+      approvers: [sustainability_officer, cfo]
+    explain:
+      what: Expert review of AI-generated metrics and narrative disclosures
+      why: Regulatory filings require human sign-off and professional judgment
+
+  - id: generate_report
+    type: agent
+    purpose: Generate formatted ESG report document (PDF and XBRL)
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs: [scope1, scope2, scope3, narrative, corrections, industry_benchmarks]
+    outputs: [report_pdf, report_xbrl]
+
+  - id: submit_regulators
+    type: api
+    purpose: Submit XBRL-tagged report to SEC EDGAR and EU CSRD portal
+    runtime:
+      endpoint: sec_edgar
+      method: POST
+      url: https://efts.sec.gov/LATEST/xbrl/submit
+    inputs: [report_xbrl]
+    outputs: [submission_id, filing_date]
+    security:
+      credentials: [SEC_FILING_KEY, CSRD_CERT]
+
+  - id: archive
+    type: git
+    purpose: Commit final report and supporting data to compliance repository
+    runtime:
+      action: commit
+      repo: git@github.com:org/esg-compliance.git
+      branch: "reports/${FISCAL_YEAR}"
+    inputs: [report_pdf, report_xbrl, submission_id]
+    explain:
+      what: Immutable record of submitted report in version-controlled archive
+      why: Audit trail requirement — regulators may request historical filings
+
+edges:
+  - from: collect_data
+    to: ai_extract
+    mode: sequential
+
+  - from: fetch_external
+    to: ai_extract
+    mode: sequential
+
+  - from: collect_data
+    to: fetch_external
+    mode: parallel
+
+  - from: ai_extract
+    to: validate
+    mode: sequential
+
+  - from: validate
+    to: human_review
+    mode: sequential
+
+  - from: human_review
+    to: generate_report
+    mode: conditional
+    condition: review_decision == "approved"
+
+  - from: human_review
+    to: ai_extract
+    mode: loop
+    condition: review_decision == "revise"
+
+  - from: generate_report
+    to: submit_regulators
+    mode: sequential
+
+  - from: submit_regulators
+    to: archive
+    mode: sequential

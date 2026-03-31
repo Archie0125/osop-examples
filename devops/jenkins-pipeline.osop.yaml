@@ -1,0 +1,110 @@
+# Jenkins Multi-Stage Pipeline
+# Checkout, build, unit test, integration test, deploy
+osop_version: "2.0"
+id: jenkins-pipeline
+name: Jenkins Multi-Stage Build and Deploy Pipeline
+
+nodes:
+  - id: scm_checkout
+    type: git
+    purpose: Checkout source code from repository
+    runtime:
+      action: clone
+      repository: "git@github.com:org/app.git"
+      branch: main
+      credentials_id: github-ssh-key
+    outputs: [workspace_path, commit_sha]
+
+  - id: build
+    type: cli
+    purpose: Compile project and package artifacts
+    runtime:
+      command: ./gradlew clean assemble
+    inputs: [workspace_path]
+    outputs: [build_artifact, build_log]
+    timeout_sec: 300
+
+  - id: unit_test
+    type: cli
+    purpose: Run unit tests with JUnit
+    runtime:
+      command: ./gradlew test
+    inputs: [workspace_path]
+    outputs: [test_report, test_coverage]
+    timeout_sec: 180
+    explain: |
+      Runs all unit tests and publishes JUnit XML results
+      to Jenkins for trend tracking.
+
+  - id: integration_test
+    type: cli
+    purpose: Run integration tests against test database
+    runtime:
+      command: ./gradlew integrationTest
+      env:
+        DB_HOST: test-db.internal
+        DB_PORT: "5432"
+    inputs: [workspace_path, build_artifact]
+    outputs: [integration_report]
+    timeout_sec: 600
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 10
+
+  - id: archive_artifacts
+    type: cicd
+    purpose: Archive build artifacts and test reports in Jenkins
+    subtype: jenkins
+    runtime:
+      platform: jenkins
+      action: archive
+      patterns: ["build/libs/*.jar", "build/reports/**"]
+    inputs: [build_artifact, test_report, integration_report]
+
+  - id: deploy
+    type: cicd
+    purpose: Deploy artifact to target environment via Jenkins pipeline
+    subtype: jenkins
+    runtime:
+      platform: jenkins
+      action: deploy
+      environment: staging
+      deploy_script: scripts/deploy.sh
+    inputs: [build_artifact]
+    outputs: [deploy_url]
+    timeout_sec: 300
+
+  - id: tag_release
+    type: git
+    purpose: Tag the commit with the release version
+    runtime:
+      action: tag
+      tag_name: "release-{{build_version}}"
+      message: "Deployed to staging"
+    inputs: [commit_sha]
+
+edges:
+  - from: scm_checkout
+    to: build
+    mode: sequential
+
+  - from: build
+    to: unit_test
+    mode: sequential
+
+  - from: unit_test
+    to: integration_test
+    mode: conditional
+    condition: "test_report.failures == 0"
+
+  - from: integration_test
+    to: archive_artifacts
+    mode: sequential
+
+  - from: archive_artifacts
+    to: deploy
+    mode: sequential
+
+  - from: deploy
+    to: tag_release
+    mode: sequential

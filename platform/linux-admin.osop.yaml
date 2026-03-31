@@ -1,0 +1,120 @@
+# Linux Server Administration
+# Health check, patching, firewall, monitoring, and backup workflow
+
+osop_version: "2.0"
+id: linux-admin
+name: Linux Server Administration Pipeline
+
+nodes:
+  - id: health_check
+    type: cli
+    purpose: Check system health — disk, memory, CPU, and running services
+    runtime:
+      os: linux
+      command: |
+        df -h && free -m && uptime
+        systemctl list-units --state=failed
+    outputs: [health_report]
+    explain:
+      what: Gathers disk usage, memory, CPU load, and failed services
+      why: Establishes baseline before making changes to the system
+
+  - id: update_packages
+    type: cli
+    purpose: Update package index and apply security patches
+    runtime:
+      os: linux
+      command: |
+        apt-get update && apt-get upgrade -y --security
+        apt-get autoremove -y
+    timeout_sec: 600
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 30
+    security:
+      run_as: root
+      sudo: true
+
+  - id: configure_firewall
+    type: cli
+    purpose: Configure UFW firewall rules for production services
+    runtime:
+      os: linux
+      command: |
+        ufw default deny incoming
+        ufw default allow outgoing
+        ufw allow 22/tcp comment 'SSH'
+        ufw allow 443/tcp comment 'HTTPS'
+        ufw allow 80/tcp comment 'HTTP'
+        ufw --force enable
+        ufw status verbose
+    security:
+      run_as: root
+      sudo: true
+      audit_log: true
+    explain:
+      what: Sets deny-by-default policy and opens only required ports
+      why: Minimizes attack surface per security hardening baseline
+
+  - id: setup_monitoring
+    type: cli
+    purpose: Install and configure Prometheus node exporter and alerting
+    runtime:
+      os: linux
+      command: |
+        apt-get install -y prometheus-node-exporter
+        systemctl enable prometheus-node-exporter
+        systemctl start prometheus-node-exporter
+    outputs: [monitoring_endpoint]
+    security:
+      run_as: root
+
+  - id: backup_config
+    type: cli
+    purpose: Archive critical configuration files to remote backup
+    runtime:
+      os: linux
+      command: |
+        tar czf /tmp/server-config-$(date +%Y%m%d).tar.gz \
+          /etc/nginx /etc/ssh /etc/ufw /etc/prometheus
+        rsync -az /tmp/server-config-*.tar.gz backup@storage:/backups/
+    timeout_sec: 300
+    security:
+      credentials: [BACKUP_SSH_KEY]
+
+  - id: verify
+    type: cli
+    purpose: Run verification checks to confirm all changes applied correctly
+    runtime:
+      os: linux
+      command: |
+        systemctl is-active nginx prometheus-node-exporter
+        ufw status | grep -c ALLOW
+        curl -s http://localhost:9100/metrics | head -5
+    outputs: [verification_result]
+
+edges:
+  - from: health_check
+    to: update_packages
+    mode: sequential
+
+  - from: update_packages
+    to: configure_firewall
+    mode: sequential
+
+  - from: configure_firewall
+    to: setup_monitoring
+    mode: sequential
+
+  - from: setup_monitoring
+    to: backup_config
+    mode: sequential
+
+  - from: backup_config
+    to: verify
+    mode: sequential
+
+  - from: update_packages
+    to: verify
+    mode: error
+    condition: package_update_failed

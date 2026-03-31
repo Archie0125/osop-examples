@@ -1,0 +1,121 @@
+# REST API Integration Workflow
+# Authenticate, fetch records, filter, batch update, verify, and log.
+osop_version: "2.0"
+id: rest-api-workflow
+name: REST API Batch Update Pipeline
+
+nodes:
+  - id: authenticate
+    type: api
+    purpose: Obtain OAuth2 access token for API authorization
+    runtime:
+      endpoint: /oauth/token
+      method: POST
+      url: https://api.service.com
+    security:
+      auth: oauth2
+      secret_ref: SERVICE_CLIENT_CREDENTIALS
+    outputs:
+      - access_token
+    timeout_sec: 10
+
+  - id: get_records
+    type: api
+    purpose: Fetch paginated list of records from the service
+    runtime:
+      endpoint: /api/v2/records
+      method: GET
+      url: https://api.service.com
+    inputs:
+      - access_token
+    outputs:
+      - records_list
+    security:
+      auth: bearer_token
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 5
+
+  - id: filter_records
+    type: cli
+    purpose: Filter records matching update criteria using jq
+    runtime:
+      command: "jq '[.[] | select(.status == \"pending\" and .age_days > 30)]'"
+    inputs:
+      - records_list
+    outputs:
+      - filtered_records
+    explain: "Select only pending records older than 30 days for batch update."
+
+  - id: batch_update
+    type: api
+    purpose: Submit batch update for filtered records
+    runtime:
+      endpoint: /api/v2/records/batch
+      method: PATCH
+      url: https://api.service.com
+    inputs:
+      - filtered_records
+      - access_token
+    outputs:
+      - update_response
+    security:
+      auth: bearer_token
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 10
+    timeout_sec: 60
+
+  - id: verify_update
+    type: api
+    purpose: Verify batch update succeeded by re-fetching updated records
+    runtime:
+      endpoint: /api/v2/records/batch/status
+      method: GET
+      url: https://api.service.com
+    inputs:
+      - update_response
+      - access_token
+    outputs:
+      - verification_result
+    security:
+      auth: bearer_token
+
+  - id: log_audit
+    type: db
+    purpose: Write audit log entry for the batch operation
+    runtime:
+      engine: postgres
+      connection: postgresql://audit:5432/logs
+    inputs:
+      - update_response
+      - verification_result
+    outputs:
+      - audit_id
+
+edges:
+  - from: authenticate
+    to: get_records
+    mode: sequential
+
+  - from: get_records
+    to: filter_records
+    mode: sequential
+
+  - from: filter_records
+    to: batch_update
+    mode: sequential
+
+  - from: batch_update
+    to: verify_update
+    mode: sequential
+
+  - from: verify_update
+    to: log_audit
+    mode: sequential
+
+  - from: batch_update
+    to: authenticate
+    mode: error
+    condition: "update_response.status == 401"
+    explain: "Re-authenticate if token expired during batch operation."

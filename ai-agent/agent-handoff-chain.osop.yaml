@@ -1,0 +1,155 @@
+# Agent Handoff Chain
+# Classify customer queries and route to the right specialist agent.
+osop_version: "2.0"
+id: agent-handoff-chain
+name: Customer Query Routing and Handoff
+
+nodes:
+  - id: customer_query
+    type: system
+    purpose: Receive and normalize incoming customer query
+    runtime:
+      tool: message-queue
+    outputs:
+      - query_text
+      - customer_id
+
+  - id: classifier
+    type: agent
+    purpose: Classify query intent into support, sales, or technical category
+    runtime:
+      provider: anthropic
+      model: claude-haiku-4-20250414
+    inputs:
+      - query_text
+    outputs:
+      - category
+      - confidence
+    timeout_sec: 10
+    explain: "Fast, cheap model for classification. Falls back to human if confidence < 0.7."
+
+  - id: router
+    type: system
+    subtype: router
+    purpose: Route query to the appropriate specialist based on classification
+    runtime:
+      tool: workflow-router
+    inputs:
+      - category
+      - confidence
+
+  - id: support_agent
+    type: agent
+    purpose: Handle billing, account, and general support queries
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - query_text
+      - customer_id
+    outputs:
+      - response_draft
+    handoff:
+      from: classifier
+      context_keys: [query_text, category, customer_id]
+
+  - id: sales_agent
+    type: agent
+    purpose: Handle pricing, upgrade, and purchase queries
+    runtime:
+      provider: openai
+      model: gpt-4o
+    inputs:
+      - query_text
+      - customer_id
+    outputs:
+      - response_draft
+    handoff:
+      from: classifier
+      context_keys: [query_text, category, customer_id]
+
+  - id: technical_agent
+    type: agent
+    purpose: Handle API issues, debugging, and technical integration queries
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs:
+      - query_text
+      - customer_id
+    outputs:
+      - response_draft
+    handoff:
+      from: classifier
+      context_keys: [query_text, category, customer_id]
+
+  - id: quality_check
+    type: agent
+    purpose: Review specialist response for tone, accuracy, and completeness
+    runtime:
+      provider: anthropic
+      model: claude-haiku-4-20250414
+    inputs:
+      - response_draft
+      - query_text
+    outputs:
+      - quality_score
+      - final_response
+
+  - id: human_escalation
+    type: human
+    purpose: Handle low-confidence classifications or failed quality checks
+    role: senior_agent
+    inputs:
+      - query_text
+      - customer_id
+    outputs:
+      - final_response
+    explain: "Escalation path when automation confidence is too low."
+
+edges:
+  - from: customer_query
+    to: classifier
+    mode: sequential
+
+  - from: classifier
+    to: router
+    mode: sequential
+
+  - from: router
+    to: support_agent
+    mode: conditional
+    condition: "category == 'support'"
+
+  - from: router
+    to: sales_agent
+    mode: conditional
+    condition: "category == 'sales'"
+
+  - from: router
+    to: technical_agent
+    mode: conditional
+    condition: "category == 'technical'"
+
+  - from: router
+    to: human_escalation
+    mode: conditional
+    condition: "confidence < 0.7"
+    explain: "Low-confidence queries go to a human agent."
+
+  - from: support_agent
+    to: quality_check
+    mode: sequential
+
+  - from: sales_agent
+    to: quality_check
+    mode: sequential
+
+  - from: technical_agent
+    to: quality_check
+    mode: sequential
+
+  - from: quality_check
+    to: human_escalation
+    mode: fallback
+    condition: "quality_score < 0.8"

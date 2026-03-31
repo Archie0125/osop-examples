@@ -1,0 +1,120 @@
+# Multi-Level Approval Chain
+# Amount-based routing with manager, director, and finance stages
+
+osop_version: "2.0"
+id: approval-chain
+name: Multi-Level Approval Chain
+
+nodes:
+  - id: submit_request
+    type: human
+    purpose: Employee submits purchase or expense request
+    role: employee
+    outputs: [request_id, amount, category, justification]
+    explain:
+      what: Employee fills out request form with amount and justification
+      why: All expenditures must enter the approval pipeline for audit compliance
+
+  - id: manager_review
+    type: human
+    purpose: Direct manager reviews and approves or rejects the request
+    role: manager
+    inputs: [request_id, amount, justification]
+    outputs: [manager_decision, comments]
+    approval_gate:
+      required: true
+      approvers: [direct_manager]
+      timeout_hours: 48
+
+  - id: amount_router
+    type: system
+    subtype: router
+    purpose: Route based on request amount threshold
+    inputs: [amount, manager_decision]
+    outputs: [route]
+    explain:
+      what: Evaluates amount against policy thresholds
+      why: Requests over $5,000 require director approval per company policy
+
+  - id: director_review
+    type: human
+    purpose: Director reviews high-value requests above $5,000
+    role: director
+    inputs: [request_id, amount, justification, manager_decision]
+    outputs: [director_decision]
+    approval_gate:
+      required: true
+      approvers: [department_director]
+      timeout_hours: 72
+
+  - id: auto_approve
+    type: system
+    subtype: action
+    purpose: Auto-approve requests under $5,000 that passed manager review
+    inputs: [request_id, manager_decision]
+    outputs: [approval_status]
+
+  - id: finance_process
+    type: api
+    purpose: Finance system processes the approved request for payment
+    runtime:
+      endpoint: erp
+      method: POST
+      url: https://erp.internal/api/v2/purchase-orders
+    inputs: [request_id, approval_status]
+    outputs: [po_number]
+    security:
+      credentials: [ERP_API_KEY]
+
+  - id: notify_employee
+    type: api
+    purpose: Notify the requesting employee of the final decision
+    runtime:
+      endpoint: email
+      method: POST
+      url: https://api.sendgrid.com/v3/mail/send
+    inputs: [request_id, approval_status, po_number]
+
+edges:
+  - from: submit_request
+    to: manager_review
+    mode: sequential
+
+  - from: manager_review
+    to: amount_router
+    mode: conditional
+    condition: manager_decision == "approved"
+
+  - from: manager_review
+    to: notify_employee
+    mode: conditional
+    condition: manager_decision == "rejected"
+
+  # Amount-based conditional routing
+  - from: amount_router
+    to: director_review
+    mode: conditional
+    condition: amount > 5000
+
+  - from: amount_router
+    to: auto_approve
+    mode: conditional
+    condition: amount <= 5000
+
+  - from: director_review
+    to: finance_process
+    mode: conditional
+    condition: director_decision == "approved"
+
+  - from: director_review
+    to: notify_employee
+    mode: conditional
+    condition: director_decision == "rejected"
+
+  - from: auto_approve
+    to: finance_process
+    mode: sequential
+
+  - from: finance_process
+    to: notify_employee
+    mode: sequential

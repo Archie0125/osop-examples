@@ -1,0 +1,186 @@
+osop_version: "1.0"
+id: "eu-ai-act-high-risk-medical-diagnosis"
+name: "AI-Assisted Medical Diagnosis (EU AI Act Compliant)"
+description: >
+  High-risk AI workflow for AI-assisted medical diagnosis.
+  Includes mandatory human oversight, risk assessment, and approval gates
+  as required by EU AI Act Article 19 for high-risk AI systems.
+version: "1.0.0"
+tags:
+  - compliance
+  - eu-ai-act
+  - high-risk
+  - medical
+  - human-oversight
+
+metadata:
+  regulation: "EU AI Act (Regulation 2024/1689)"
+  risk_classification: "high-risk"
+  article_19_compliant: true
+  data_retention_months: 60
+  responsible_entity: "Example Hospital AI Department"
+
+nodes:
+  - id: "patient_data_ingestion"
+    type: "api"
+    subtype: "rest"
+    name: "Ingest Patient Data"
+    description: >
+      Receive patient medical records, lab results, and imaging data
+      from the hospital information system. Validate data completeness
+      and format before processing.
+    security:
+      risk_level: "high"
+      data_classification: "sensitive-medical"
+      encryption: "AES-256"
+      access_control: "role-based"
+
+  - id: "data_validation"
+    type: "cli"
+    subtype: "script"
+    name: "Validate Input Data"
+    description: >
+      Run validation checks on patient data: schema conformance,
+      required fields, data range checks, and anomaly detection.
+      Reject incomplete or malformed records.
+    security:
+      risk_level: "medium"
+      data_classification: "sensitive-medical"
+
+  - id: "ai_diagnosis"
+    type: "agent"
+    subtype: "llm"
+    name: "AI Preliminary Diagnosis"
+    description: >
+      AI model analyzes patient data (medical history, lab results,
+      imaging) and produces a preliminary diagnosis with confidence
+      scores, differential diagnoses, and supporting evidence.
+    security:
+      risk_level: "critical"
+      data_classification: "sensitive-medical"
+      model_governance: "approved-clinical-model"
+
+  - id: "risk_assessment"
+    type: "agent"
+    subtype: "llm"
+    name: "Clinical Risk Assessment"
+    description: >
+      Evaluate the AI diagnosis against clinical risk thresholds.
+      Flag cases where confidence is below threshold, where the
+      diagnosis involves life-threatening conditions, or where
+      the AI identifies conflicting indicators.
+    security:
+      risk_level: "critical"
+      data_classification: "sensitive-medical"
+
+  - id: "physician_review"
+    type: "human"
+    subtype: "review"
+    name: "Physician Review"
+    description: >
+      Licensed physician reviews the AI recommendation, risk
+      assessment, and supporting evidence. The physician makes
+      the final clinical decision. This step is mandatory and
+      cannot be bypassed.
+    security:
+      risk_level: "critical"
+      data_classification: "sensitive-medical"
+      mandatory: true
+      bypass_allowed: false
+
+  - id: "approval_gate"
+    type: "human"
+    subtype: "input"
+    name: "Approval Gate"
+    description: >
+      Final approval checkpoint before the diagnosis is recorded
+      in the patient record. Requires explicit physician sign-off.
+      Rejected cases are returned for further review.
+    security:
+      risk_level: "critical"
+      mandatory: true
+      bypass_allowed: false
+
+  - id: "record_diagnosis"
+    type: "api"
+    subtype: "rest"
+    name: "Record Final Diagnosis"
+    description: >
+      Write the approved diagnosis to the patient's electronic
+      health record. Include the AI recommendation, physician
+      decision, and full audit trail reference.
+    security:
+      risk_level: "high"
+      data_classification: "sensitive-medical"
+      audit_trail: true
+
+  - id: "error_handler"
+    type: "agent"
+    subtype: "llm"
+    name: "Error Handler"
+    description: >
+      Handle failures at any stage. Log the error, notify the
+      responsible physician, and escalate if patient safety
+      may be affected.
+    security:
+      risk_level: "high"
+
+edges:
+  - from: "patient_data_ingestion"
+    to: "data_validation"
+    mode: "sequential"
+
+  - from: "data_validation"
+    to: "ai_diagnosis"
+    mode: "conditional"
+    when: "validation.status == 'passed'"
+
+  - from: "data_validation"
+    to: "error_handler"
+    mode: "conditional"
+    when: "validation.status == 'failed'"
+    label: "Invalid input data"
+
+  - from: "ai_diagnosis"
+    to: "risk_assessment"
+    mode: "sequential"
+
+  - from: "ai_diagnosis"
+    to: "error_handler"
+    mode: "fallback"
+    label: "AI model failure"
+
+  - from: "risk_assessment"
+    to: "physician_review"
+    mode: "sequential"
+
+  - from: "risk_assessment"
+    to: "error_handler"
+    mode: "fallback"
+    label: "Risk assessment failure"
+
+  - from: "physician_review"
+    to: "approval_gate"
+    mode: "sequential"
+
+  - from: "approval_gate"
+    to: "record_diagnosis"
+    mode: "conditional"
+    when: "approval.decision == 'approved'"
+
+  - from: "approval_gate"
+    to: "physician_review"
+    mode: "conditional"
+    when: "approval.decision == 'request_revision'"
+    label: "Returned for further review"
+
+  - from: "approval_gate"
+    to: "error_handler"
+    mode: "conditional"
+    when: "approval.decision == 'rejected'"
+    label: "Diagnosis rejected"
+
+  - from: "record_diagnosis"
+    to: "error_handler"
+    mode: "fallback"
+    label: "Failed to write to EHR"

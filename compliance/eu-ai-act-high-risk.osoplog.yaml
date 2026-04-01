@@ -1,0 +1,305 @@
+osoplog_version: "1.0"
+run_id: "a3f8c921-7b4e-4d12-9f01-2e8b6a5c3d70"
+workflow_id: "eu-ai-act-high-risk-medical-diagnosis"
+mode: "live"
+status: "COMPLETED"
+
+trigger:
+  type: "automatic"
+  actor: "hospital-ai-system"
+  source: "HL7 FHIR patient admission event"
+  timestamp: "2026-03-15T09:12:03.000Z"
+
+started_at: "2026-03-15T09:12:03.000Z"
+ended_at: "2026-03-15T09:47:22.000Z"
+duration_ms: 2119000
+
+runtime:
+  agent: "hospital-clinical-ai-v2"
+  model: "medpalm-3-clinical-2026q1"
+  environment: "production"
+  region: "eu-west-1"
+
+metadata:
+  regulation: "EU AI Act (Regulation 2024/1689)"
+  risk_classification: "high-risk"
+  patient_id_pseudonymized: "PT-8a3f2c91"
+  department: "Internal Medicine"
+  data_retention_until: "2031-03-15"
+
+node_records:
+  - node_id: "patient_data_ingestion"
+    node_type: "api"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:12:03.000Z"
+    ended_at: "2026-03-15T09:12:08.500Z"
+    duration_ms: 5500
+    inputs:
+      source_system: "Epic EHR via HL7 FHIR R4"
+      patient_id_pseudonymized: "PT-8a3f2c91"
+      data_types:
+        - "medical_history"
+        - "lab_results_cbc"
+        - "lab_results_metabolic_panel"
+        - "chest_xray_dicom"
+        - "vitals_last_24h"
+      record_count: 47
+    outputs:
+      ingestion_status: "success"
+      records_ingested: 47
+      data_quality_score: 0.96
+      missing_fields: ["allergy_history_update"]
+    tools_used:
+      - tool: "FHIR Client"
+        calls: 5
+        details:
+          - { endpoint: "/Patient/PT-8a3f2c91", result: "200 OK" }
+          - { endpoint: "/Observation?patient=PT-8a3f2c91&category=laboratory", result: "200 OK, 23 results" }
+          - { endpoint: "/Observation?patient=PT-8a3f2c91&category=vital-signs", result: "200 OK, 18 results" }
+          - { endpoint: "/ImagingStudy?patient=PT-8a3f2c91", result: "200 OK, 3 results" }
+          - { endpoint: "/Condition?patient=PT-8a3f2c91", result: "200 OK, 6 results" }
+
+  - node_id: "data_validation"
+    node_type: "cli"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:12:08.500Z"
+    ended_at: "2026-03-15T09:12:14.200Z"
+    duration_ms: 5700
+    inputs:
+      records_to_validate: 47
+      validation_rules: "clinical-data-schema-v3.2"
+    outputs:
+      validation_status: "passed"
+      records_valid: 46
+      records_warning: 1
+      warnings:
+        - field: "allergy_history"
+          message: "Last updated more than 12 months ago"
+          severity: "warning"
+      schema_version: "clinical-data-schema-v3.2"
+    tools_used:
+      - tool: "clinical-data-validator"
+        calls: 1
+        details:
+          - { command: "validate --schema clinical-v3.2 --input patient-bundle.json", result: "pass with 1 warning" }
+
+  - node_id: "ai_diagnosis"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:12:14.200Z"
+    ended_at: "2026-03-15T09:13:42.800Z"
+    duration_ms: 88600
+    inputs:
+      patient_data_summary:
+        age: 62
+        sex: "male"
+        chief_complaint: "persistent cough, fatigue, unintended weight loss"
+        relevant_history: ["type 2 diabetes", "hypertension", "former smoker (quit 2019)"]
+        key_lab_values:
+          wbc: "12.3 x10^9/L (elevated)"
+          hemoglobin: "11.2 g/dL (low)"
+          crp: "48 mg/L (elevated)"
+          ldh: "310 U/L (elevated)"
+        imaging: "chest_xray_posterior_anterior"
+    outputs:
+      primary_diagnosis:
+        condition: "Suspected pulmonary malignancy"
+        icd10_code: "C34.9"
+        confidence: 0.78
+      differential_diagnoses:
+        - condition: "Community-acquired pneumonia"
+          icd10_code: "J18.9"
+          confidence: 0.15
+        - condition: "Tuberculosis"
+          icd10_code: "A15.0"
+          confidence: 0.05
+        - condition: "Sarcoidosis"
+          icd10_code: "D86.0"
+          confidence: 0.02
+      reasoning: >
+        Elevated WBC and CRP indicate an inflammatory or infectious process.
+        However, the combination of unintended weight loss, elevated LDH,
+        low hemoglobin, and the patient's smoking history (30 pack-years,
+        quit 2019) raises significant concern for pulmonary malignancy.
+        Chest X-ray shows a 3.2cm irregular opacity in the right upper lobe
+        with possible mediastinal lymphadenopathy. While pneumonia remains
+        in the differential, the clinical picture and imaging findings
+        warrant urgent further investigation for malignancy.
+      recommended_next_steps:
+        - "CT chest with contrast"
+        - "Sputum cytology"
+        - "Pulmonology referral"
+      flags:
+        - "LIFE_THREATENING_CONDITION"
+        - "URGENT_FOLLOWUP_REQUIRED"
+    ai_metadata:
+      model: "medpalm-3-clinical-2026q1"
+      model_version: "3.1.4-clinical-eu"
+      prompt_tokens: 8432
+      completion_tokens: 1247
+      total_tokens: 9679
+      inference_time_ms: 84200
+      temperature: 0.1
+      safety_filters_applied: true
+
+  - node_id: "risk_assessment"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:13:42.800Z"
+    ended_at: "2026-03-15T09:14:18.300Z"
+    duration_ms: 35500
+    inputs:
+      ai_diagnosis_confidence: 0.78
+      confidence_threshold: 0.85
+      life_threatening_flag: true
+      differential_count: 4
+    outputs:
+      risk_level: "high"
+      risk_factors:
+        - factor: "Confidence below clinical threshold"
+          detail: "0.78 < 0.85 threshold for standalone diagnosis"
+          severity: "high"
+        - factor: "Life-threatening condition flagged"
+          detail: "Suspected malignancy requires mandatory physician review"
+          severity: "critical"
+        - factor: "Significant differential diagnoses"
+          detail: "Pneumonia at 15% cannot be excluded without further testing"
+          severity: "medium"
+      recommendation: "MANDATORY_PHYSICIAN_REVIEW"
+      reasoning: >
+        The AI model confidence of 0.78 is below the 0.85 threshold
+        required for clinical decisions. Additionally, the primary
+        diagnosis involves a life-threatening condition (suspected
+        pulmonary malignancy), which by hospital policy and EU AI Act
+        requirements mandates physician review regardless of confidence
+        level. The non-trivial differential of community-acquired
+        pneumonia (15%) further necessitates expert clinical judgment.
+      auto_approve_eligible: false
+    ai_metadata:
+      model: "medpalm-3-clinical-2026q1"
+      model_version: "3.1.4-clinical-eu"
+      prompt_tokens: 3210
+      completion_tokens: 487
+      total_tokens: 3697
+
+  - node_id: "physician_review"
+    node_type: "human"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:14:18.300Z"
+    ended_at: "2026-03-15T09:41:55.000Z"
+    duration_ms: 1656700
+    inputs:
+      ai_primary_diagnosis: "Suspected pulmonary malignancy (C34.9)"
+      ai_confidence: 0.78
+      risk_level: "high"
+      differential_diagnoses:
+        - "Community-acquired pneumonia (15%)"
+        - "Tuberculosis (5%)"
+        - "Sarcoidosis (2%)"
+      ai_reasoning_summary: "Weight loss, smoking history, elevated LDH, RUL opacity"
+      recommended_next_steps:
+        - "CT chest with contrast"
+        - "Sputum cytology"
+        - "Pulmonology referral"
+    outputs:
+      reviewer: "dr-elena-smith"
+      reviewer_role: "Attending Physician, Internal Medicine"
+      reviewer_license: "EU-MED-2019-44821"
+      decision: "approved_with_modifications"
+      modifications:
+        - "Added bronchoscopy to recommended next steps"
+        - "Upgraded urgency from 'urgent' to 'emergent' based on patient symptom progression"
+        - "Added PET-CT to staging workup if CT confirms mass"
+      clinical_notes: >
+        Concur with AI assessment of suspected pulmonary malignancy as
+        primary diagnosis. The 3.2cm RUL opacity with irregular margins
+        and possible mediastinal lymphadenopathy is concerning. Patient's
+        smoking history and symptom pattern support this. However, given
+        the elevated WBC and CRP, concurrent infection cannot be excluded.
+        Ordering CT chest with contrast as emergent (within 24h), adding
+        bronchoscopy to the workup plan, and referring to Pulmonology
+        and Oncology simultaneously.
+      time_spent_reviewing_minutes: 27
+
+  - node_id: "approval_gate"
+    node_type: "human"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:41:55.000Z"
+    ended_at: "2026-03-15T09:43:12.000Z"
+    duration_ms: 77000
+    inputs:
+      diagnosis_to_approve: "Suspected pulmonary malignancy (C34.9)"
+      physician_decision: "approved_with_modifications"
+      modifications_count: 3
+    outputs:
+      approver: "dr-elena-smith"
+      approver_role: "Attending Physician, Internal Medicine"
+      decision: "approved"
+      signature_method: "digital_signature_eidas_qualified"
+      signature_timestamp: "2026-03-15T09:43:08.000Z"
+      approval_notes: "Approved with modifications as noted in physician review."
+
+  - node_id: "record_diagnosis"
+    node_type: "api"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-03-15T09:43:12.000Z"
+    ended_at: "2026-03-15T09:47:22.000Z"
+    duration_ms: 250000
+    inputs:
+      patient_id_pseudonymized: "PT-8a3f2c91"
+      final_diagnosis: "Suspected pulmonary malignancy (C34.9)"
+      approved_by: "dr-elena-smith"
+      approval_timestamp: "2026-03-15T09:43:08.000Z"
+    outputs:
+      ehr_record_id: "EHR-2026-0315-00847"
+      fhir_condition_id: "Condition/cond-8a3f2c91-20260315"
+      orders_created:
+        - "CT chest with contrast (emergent, within 24h)"
+        - "Sputum cytology"
+        - "Bronchoscopy referral"
+        - "Pulmonology referral"
+        - "Oncology referral"
+      audit_trail_id: "AUDIT-2026-0315-00847"
+      notification_sent_to:
+        - "dr-elena-smith (attending)"
+        - "pulmonology-on-call"
+        - "radiology-emergent-queue"
+    tools_used:
+      - tool: "FHIR Client"
+        calls: 6
+        details:
+          - { endpoint: "POST /Condition", result: "201 Created" }
+          - { endpoint: "POST /ServiceRequest (CT)", result: "201 Created" }
+          - { endpoint: "POST /ServiceRequest (sputum)", result: "201 Created" }
+          - { endpoint: "POST /ServiceRequest (bronchoscopy)", result: "201 Created" }
+          - { endpoint: "POST /ServiceRequest (pulmonology)", result: "201 Created" }
+          - { endpoint: "POST /ServiceRequest (oncology)", result: "201 Created" }
+
+result_summary: >
+  AI-assisted diagnosis workflow completed successfully for patient PT-8a3f2c91.
+  The AI model identified suspected pulmonary malignancy (C34.9) with 78% confidence.
+  Risk assessment flagged mandatory physician review due to life-threatening condition
+  and sub-threshold confidence. Dr. Elena Smith reviewed and approved the diagnosis
+  with modifications (added bronchoscopy, upgraded urgency to emergent, added PET-CT
+  contingency). Final diagnosis recorded in EHR with six orders created. Full audit
+  trail preserved. All EU AI Act Article 19 requirements satisfied: timestamped
+  execution log, human oversight with identified reviewer, AI reasoning traces,
+  and input/output recording at every stage.
+
+cost:
+  total_usd: 0.42
+  breakdown:
+    - { node_id: "patient_data_ingestion", cost_usd: 0.01 }
+    - { node_id: "data_validation", cost_usd: 0.00 }
+    - { node_id: "ai_diagnosis", cost_usd: 0.29 }
+    - { node_id: "risk_assessment", cost_usd: 0.11 }
+    - { node_id: "physician_review", cost_usd: 0.00 }
+    - { node_id: "approval_gate", cost_usd: 0.00 }
+    - { node_id: "record_diagnosis", cost_usd: 0.01 }

@@ -1,0 +1,133 @@
+# CrewAI Multi-Agent Pattern
+# Coordinator dispatches research, analysis, writing, and editing agents
+osop_version: "2.0"
+id: crewai-pattern
+name: CrewAI Research Report Pipeline
+
+nodes:
+  - id: coordinator
+    type: agent
+    subtype: coordinator
+    purpose: Parse user request, define research scope, and dispatch specialized agents
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        system_prompt: |
+          You are a research coordinator. Break down the user's request into
+          specific research tasks, assign them to specialists, and define
+          the deliverable format.
+        temperature: 0.3
+    outputs: [research_plan, agent_assignments, deliverable_format]
+    timeout_sec: 30
+
+  - id: researcher
+    type: agent
+    subtype: worker
+    purpose: Conduct deep research on assigned topics using web search and document analysis
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        tools: [web_search, pdf_reader, arxiv_search]
+        max_iterations: 10
+        temperature: 0.4
+    inputs: [research_plan, agent_assignments]
+    outputs: [raw_findings, source_list, evidence_quality_scores]
+    timeout_sec: 300
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 10
+    explain: |
+      Researcher agent uses iterative search-read-synthesize loop.
+      Each finding is tagged with source URL and evidence quality score.
+
+  - id: analyst
+    type: agent
+    subtype: worker
+    purpose: Analyze research findings, identify patterns, and produce structured insights
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        tools: [code_interpreter, chart_generator]
+        temperature: 0.2
+        system_prompt: |
+          Analyze the research findings. Identify trends, contradictions,
+          and gaps. Produce quantitative analysis where data supports it.
+          Create charts and visualizations for key insights.
+    inputs: [raw_findings, source_list]
+    outputs: [analysis_report, key_insights, charts, data_tables]
+    timeout_sec: 180
+
+  - id: writer
+    type: agent
+    subtype: worker
+    purpose: Compose the final report integrating research and analysis into coherent narrative
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        temperature: 0.5
+        system_prompt: |
+          Write a professional research report. Use clear structure with
+          executive summary, methodology, findings, analysis, and recommendations.
+          Cite all sources. Integrate charts and data tables.
+    inputs: [analysis_report, key_insights, charts, raw_findings, deliverable_format]
+    outputs: [draft_report, word_count, citation_count]
+    timeout_sec: 120
+
+  - id: editor
+    type: agent
+    subtype: worker
+    purpose: Review and refine the draft for accuracy, clarity, tone, and citation integrity
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        temperature: 0.1
+        system_prompt: |
+          Edit this report for: factual accuracy (verify claims against sources),
+          logical flow, grammar, tone consistency, and citation completeness.
+          Flag any unsupported claims. Suggest structural improvements.
+    inputs: [draft_report, source_list, evidence_quality_scores]
+    outputs: [final_report, edit_summary, accuracy_flags, quality_score]
+    timeout_sec: 120
+
+  - id: deliver_report
+    type: api
+    purpose: Publish final report and notify the requesting user
+    runtime:
+      endpoint: /api/v1/reports/publish
+      method: POST
+      url: https://reports.internal
+    inputs: [final_report, quality_score]
+    outputs: [report_url, delivery_timestamp]
+
+edges:
+  - from: coordinator
+    to: researcher
+    mode: spawn
+    label: "Dispatch researcher agent"
+
+  - from: researcher
+    to: analyst
+    mode: sequential
+
+  - from: analyst
+    to: writer
+    mode: sequential
+
+  - from: writer
+    to: editor
+    mode: sequential
+
+  - from: editor
+    to: deliver_report
+    mode: conditional
+    condition: "quality_score >= 0.85 && accuracy_flags.length == 0"
+
+  - from: editor
+    to: writer
+    mode: fallback
+    label: "Quality below threshold, revise draft"

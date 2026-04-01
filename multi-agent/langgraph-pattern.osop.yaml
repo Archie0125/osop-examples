@@ -1,0 +1,160 @@
+# LangGraph Multi-Agent Pattern
+# Router, tool caller, synthesizer, and output formatter in a stateful graph
+osop_version: "2.0"
+id: langgraph-pattern
+name: LangGraph Stateful Agent Pipeline
+
+nodes:
+  - id: input_parser
+    type: agent
+    subtype: worker
+    purpose: Parse and classify user input to determine intent, entities, and required tools
+    runtime:
+      provider: anthropic
+      model: claude-haiku-4-20250414
+      config:
+        temperature: 0.0
+        system_prompt: |
+          Classify the user query. Extract:
+          - intent: one of [factual_lookup, calculation, code_generation, creative_writing, multi_step_reasoning]
+          - entities: key nouns and concepts
+          - required_tools: which tools are needed
+          - complexity: simple, moderate, complex
+          Return as structured JSON.
+    outputs: [intent, entities, required_tools, complexity]
+    timeout_sec: 5
+
+  - id: router
+    type: agent
+    subtype: coordinator
+    purpose: Route to appropriate processing path based on intent classification and complexity
+    runtime:
+      provider: internal
+      model: routing-engine
+      config:
+        routes:
+          factual_lookup: [tool_caller]
+          calculation: [tool_caller]
+          code_generation: [tool_caller, synthesizer]
+          creative_writing: [synthesizer]
+          multi_step_reasoning: [tool_caller, tool_caller, synthesizer]
+    inputs: [intent, complexity, required_tools]
+    outputs: [execution_plan, selected_route]
+    timeout_sec: 2
+    explain: |
+      LangGraph conditional edges implemented as a routing node.
+      Complex queries trigger multiple tool_caller iterations before synthesis.
+
+  - id: tool_caller
+    type: agent
+    subtype: worker
+    purpose: Execute tool calls (search, calculator, code interpreter, API) and collect results
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        tools:
+          - name: web_search
+            description: "Search the web for current information"
+          - name: calculator
+            description: "Perform mathematical calculations"
+          - name: code_interpreter
+            description: "Execute Python code in sandbox"
+          - name: knowledge_base
+            description: "Query internal knowledge base"
+        max_tool_calls: 5
+        temperature: 0.1
+    inputs: [intent, entities, execution_plan]
+    outputs: [tool_results, tool_call_log, intermediate_state]
+    timeout_sec: 60
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 5
+    explain: |
+      Implements ReAct pattern: Reason about what tool to use, Act by calling it,
+      Observe the result, and repeat until sufficient information is gathered.
+      State is preserved across iterations via LangGraph checkpointing.
+
+  - id: synthesizer
+    type: agent
+    subtype: worker
+    purpose: Synthesize tool results and reasoning into a coherent, grounded response
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        temperature: 0.3
+        max_tokens: 2048
+        system_prompt: |
+          Synthesize the gathered information into a clear, accurate response.
+          Cite sources for factual claims. Show your reasoning for complex questions.
+          If information is uncertain, state confidence levels.
+    inputs: [intent, entities, tool_results, intermediate_state]
+    outputs: [synthesized_response, confidence_score, source_citations]
+    timeout_sec: 30
+
+  - id: output_formatter
+    type: agent
+    subtype: worker
+    purpose: Format final output based on user preferences and channel requirements
+    runtime:
+      provider: anthropic
+      model: claude-haiku-4-20250414
+      config:
+        temperature: 0.0
+        system_prompt: |
+          Format the response for the target channel. Apply:
+          - Markdown for text channels
+          - Plain text for voice/SMS
+          - Structured JSON for API responses
+          Preserve all citations and confidence metadata.
+    inputs: [synthesized_response, source_citations, confidence_score]
+    outputs: [formatted_output, metadata]
+    timeout_sec: 5
+
+  - id: state_checkpoint
+    type: db
+    purpose: Persist conversation state to LangGraph checkpoint store for resumability
+    runtime:
+      engine: redis
+      connection: redis://langgraph-state.internal:6379
+    inputs: [formatted_output, intermediate_state, tool_call_log]
+    outputs: [checkpoint_id, thread_id]
+    timeout_sec: 5
+    explain: |
+      LangGraph persists full graph state at each node transition.
+      Enables conversation resumption, branching, and time-travel debugging.
+
+edges:
+  - from: input_parser
+    to: router
+    mode: sequential
+
+  - from: router
+    to: tool_caller
+    mode: conditional
+    condition: "selected_route contains 'tool_caller'"
+
+  - from: router
+    to: synthesizer
+    mode: conditional
+    condition: "intent == 'creative_writing'"
+    label: "Direct to synthesis for creative tasks"
+
+  - from: tool_caller
+    to: tool_caller
+    mode: loop
+    when: "execution_plan.remaining_steps > 0"
+    label: "Multi-step tool calling loop"
+
+  - from: tool_caller
+    to: synthesizer
+    mode: sequential
+
+  - from: synthesizer
+    to: output_formatter
+    mode: sequential
+
+  - from: output_formatter
+    to: state_checkpoint
+    mode: sequential

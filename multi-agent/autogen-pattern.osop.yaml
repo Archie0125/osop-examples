@@ -1,0 +1,134 @@
+# AutoGen Multi-Agent Pattern
+# User proxy, assistant, code executor, and validator in conversational loop
+osop_version: "2.0"
+id: autogen-pattern
+name: AutoGen Conversational Agent Pipeline
+
+nodes:
+  - id: user_proxy
+    type: agent
+    subtype: coordinator
+    purpose: Represent the user, relay requests, and decide when the task is complete
+    runtime:
+      provider: autogen
+      model: user-proxy
+      config:
+        human_input_mode: "TERMINATE"
+        max_consecutive_auto_reply: 10
+        termination_msg: "TASK_COMPLETE"
+    outputs: [user_request, context, termination_criteria]
+    explain: |
+      The user proxy acts as the human stand-in. It forwards the initial request,
+      provides feedback on intermediate results, and signals task completion
+      when the termination criteria are met.
+
+  - id: assistant
+    type: agent
+    subtype: worker
+    purpose: Reason about the problem, plan solution approach, and generate code
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        temperature: 0.3
+        system_prompt: |
+          You are a senior software engineer assistant. When given a task:
+          1. Break it into steps
+          2. Write clean, tested Python code
+          3. Explain your reasoning
+          Always wrap code in ```python blocks for the executor.
+        max_tokens: 4096
+    inputs: [user_request, context, execution_feedback]
+    outputs: [reasoning, code_blocks, solution_plan]
+    timeout_sec: 60
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 5
+
+  - id: code_executor
+    type: cli
+    purpose: Execute generated code in sandboxed Docker environment and capture output
+    runtime:
+      command: |
+        docker run --rm \
+          --network none \
+          --memory 512m \
+          --cpus 1 \
+          -v ${WORKSPACE}:/workspace:rw \
+          python:3.12-slim \
+          python /workspace/generated_code.py
+    inputs: [code_blocks]
+    outputs: [stdout, stderr, exit_code, execution_time_ms]
+    timeout_sec: 120
+    security:
+      sandbox: true
+      network: disabled
+      memory_limit: "512m"
+      cpu_limit: 1
+    explain: |
+      Code runs in a fully sandboxed container with no network access.
+      Resource limits prevent runaway processes. All file system changes
+      are captured for the validator.
+
+  - id: validator
+    type: agent
+    subtype: worker
+    purpose: Validate code execution results against requirements and check for correctness
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        temperature: 0.1
+        system_prompt: |
+          Validate the code execution results:
+          1. Did the code execute without errors?
+          2. Does the output match the expected behavior?
+          3. Are there edge cases not handled?
+          4. Is the code efficient and clean?
+          Respond with PASS, FAIL, or NEEDS_REVISION with specific feedback.
+    inputs: [user_request, code_blocks, stdout, stderr, exit_code]
+    outputs: [validation_status, feedback, improvement_suggestions]
+    timeout_sec: 30
+
+  - id: collect_result
+    type: cli
+    purpose: Package final validated code, output, and documentation for delivery
+    runtime:
+      command: |
+        python package_result.py \
+          --code ${WORKSPACE}/generated_code.py \
+          --output ${stdout} \
+          --validation ${validation_status} \
+          --format markdown
+    inputs: [code_blocks, stdout, validation_status]
+    outputs: [final_package, documentation]
+    timeout_sec: 15
+
+edges:
+  - from: user_proxy
+    to: assistant
+    mode: sequential
+
+  - from: assistant
+    to: code_executor
+    mode: sequential
+
+  - from: code_executor
+    to: validator
+    mode: sequential
+
+  - from: validator
+    to: assistant
+    mode: conditional
+    condition: "validation_status == 'NEEDS_REVISION'"
+    label: "Revision loop with validator feedback"
+
+  - from: validator
+    to: collect_result
+    mode: conditional
+    condition: "validation_status == 'PASS'"
+
+  - from: validator
+    to: assistant
+    mode: fallback
+    label: "Execution failed, assistant re-generates code"

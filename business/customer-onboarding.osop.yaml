@@ -1,0 +1,138 @@
+# Customer Onboarding Workflow
+# Registration, identity verification, account setup, and welcome sequence
+osop_version: "2.0"
+id: customer-onboarding
+name: Customer Onboarding Workflow
+
+nodes:
+  - id: register
+    type: api
+    purpose: Accept customer registration with email, phone, and basic profile data
+    runtime:
+      endpoint: /api/v1/customers/register
+      method: POST
+      url: https://api.platform.com
+    outputs: [customer_id, email, phone, registration_timestamp]
+    timeout_sec: 10
+    security:
+      require_ssl: true
+      rate_limit: "10/minute"
+
+  - id: verify_email
+    type: api
+    purpose: Send verification email and wait for customer to confirm
+    runtime:
+      endpoint: /api/v1/verify/email
+      method: POST
+      url: https://api.platform.com
+    inputs: [customer_id, email]
+    outputs: [email_verified]
+    timeout_sec: 86400
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 3600
+    explain: "Sends OTP link. Resends after 1 hour if not verified. Expires in 24 hours."
+
+  - id: kyc_identity
+    type: api
+    purpose: Run KYC identity verification via document upload and liveness check
+    runtime:
+      endpoint: /api/v1/identity/verify
+      method: POST
+      url: https://kyc-provider.com
+    inputs: [customer_id]
+    outputs: [kyc_status, kyc_score, watchlist_match, document_type]
+    security:
+      auth: bearer_token
+      secret_ref: KYC_PROVIDER_API_KEY
+    timeout_sec: 300
+    retry_policy:
+      max_retries: 3
+      backoff_sec: 10
+    explain: |
+      Checks government ID against liveness selfie. Runs AML/PEP watchlist
+      screening. Score above 0.7 is auto-approved; below requires manual review.
+
+  - id: compliance_review
+    type: human
+    purpose: Compliance officer reviews flagged KYC cases requiring manual adjudication
+    role: compliance_officer
+    inputs: [customer_id, kyc_status, kyc_score, watchlist_match]
+    outputs: [compliance_decision, review_notes]
+    approval_gate:
+      required_approvers: 1
+      timeout_min: 1440
+
+  - id: setup_account
+    type: cli
+    purpose: Provision customer account, billing profile, and default settings
+    runtime:
+      command: |
+        python provision_account.py \
+          --customer-id ${customer_id} \
+          --tier free \
+          --create-billing \
+          --create-api-keys \
+          --setup-defaults
+    inputs: [customer_id, compliance_decision]
+    outputs: [account_id, api_key, billing_profile_id]
+    timeout_sec: 60
+    security:
+      credentials: [STRIPE_SECRET_KEY, DATABASE_URL]
+
+  - id: send_welcome
+    type: api
+    purpose: Trigger welcome email sequence with onboarding guide and quickstart links
+    runtime:
+      endpoint: /api/v1/email/send
+      method: POST
+      url: https://email-service.internal
+    inputs: [customer_id, email, account_id]
+    outputs: [welcome_email_id]
+    security:
+      auth: bearer_token
+      secret_ref: EMAIL_SERVICE_KEY
+
+  - id: assign_csm
+    type: api
+    purpose: Auto-assign customer success manager based on segment and capacity
+    runtime:
+      endpoint: /api/v1/csm/assign
+      method: POST
+      url: https://crm.internal
+    inputs: [customer_id, account_id]
+    outputs: [csm_id, csm_name]
+    timeout_sec: 10
+
+edges:
+  - from: register
+    to: verify_email
+    mode: sequential
+
+  - from: verify_email
+    to: kyc_identity
+    mode: conditional
+    condition: "email_verified == true"
+
+  - from: kyc_identity
+    to: setup_account
+    mode: conditional
+    condition: "kyc_score >= 0.7 && watchlist_match == false"
+
+  - from: kyc_identity
+    to: compliance_review
+    mode: conditional
+    condition: "kyc_score < 0.7 || watchlist_match == true"
+
+  - from: compliance_review
+    to: setup_account
+    mode: conditional
+    condition: "compliance_decision == 'approved'"
+
+  - from: setup_account
+    to: send_welcome
+    mode: parallel
+
+  - from: setup_account
+    to: assign_csm
+    mode: parallel

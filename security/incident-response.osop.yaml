@@ -1,0 +1,154 @@
+# Security Incident Response Workflow
+# Detect, contain, eradicate, recover, and document lessons learned (NIST SP 800-61)
+osop_version: "2.0"
+id: incident-response
+name: Security Incident Response
+
+nodes:
+  - id: detect_alert
+    type: api
+    purpose: Receive security alert from SIEM and create incident record
+    runtime:
+      endpoint: /api/v1/incidents
+      method: POST
+      url: https://siem.internal
+    outputs: [incident_id, alert_type, severity, affected_systems, ioc_list, detection_timestamp]
+    explain: |
+      Alerts sourced from Splunk SIEM, CrowdStrike EDR, and AWS GuardDuty.
+      Auto-classified by severity: P1 (critical), P2 (high), P3 (medium).
+
+  - id: initial_triage
+    type: agent
+    purpose: AI-assisted triage to determine scope, blast radius, and recommended containment
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      config:
+        system_prompt: |
+          You are a security incident responder. Analyze the alert data,
+          correlate IOCs with threat intelligence, determine blast radius,
+          and recommend immediate containment actions.
+    inputs: [alert_type, severity, affected_systems, ioc_list]
+    outputs: [triage_assessment, blast_radius, containment_recommendation, threat_actor_hypothesis]
+    timeout_sec: 60
+
+  - id: contain_threat
+    type: cli
+    purpose: Execute automated containment actions to limit blast radius
+    runtime:
+      command: |
+        python contain.py \
+          --incident-id ${incident_id} \
+          --actions isolate_hosts,block_iocs,revoke_tokens,disable_accounts \
+          --affected-systems ${affected_systems} \
+          --iocs ${ioc_list}
+    inputs: [incident_id, containment_recommendation, affected_systems, ioc_list]
+    outputs: [containment_actions_taken, isolated_hosts, blocked_iocs]
+    timeout_sec: 300
+    security:
+      credentials: [CROWDSTRIKE_API_KEY, AWS_SECURITY_ROLE, OKTA_API_TOKEN]
+    explain: |
+      Automated containment: network isolation of compromised hosts,
+      IOC blocking at firewall/proxy, credential revocation, account suspension.
+
+  - id: incident_commander_review
+    type: human
+    purpose: Incident commander assesses containment effectiveness and authorizes investigation
+    role: incident_commander
+    inputs: [triage_assessment, containment_actions_taken, blast_radius]
+    outputs: [investigation_authorized, additional_containment]
+    approval_gate:
+      required_approvers: 1
+      timeout_min: 30
+
+  - id: eradicate_threat
+    type: cli
+    purpose: Remove threat artifacts, patch exploited vulnerabilities, and clean systems
+    runtime:
+      command: |
+        python eradicate.py \
+          --incident-id ${incident_id} \
+          --remove-malware \
+          --patch-vulns \
+          --rotate-credentials \
+          --forensic-snapshot
+    inputs: [incident_id, isolated_hosts, ioc_list]
+    outputs: [eradication_report, forensic_image_ids, patched_systems]
+    timeout_sec: 7200
+    security:
+      credentials: [CROWDSTRIKE_API_KEY, AWS_SECURITY_ROLE]
+
+  - id: recover_systems
+    type: cli
+    purpose: Restore affected systems from clean backups and validate integrity
+    runtime:
+      command: |
+        python recover.py \
+          --incident-id ${incident_id} \
+          --restore-from-backup \
+          --validate-integrity \
+          --monitor-duration 24h
+    inputs: [incident_id, eradication_report, patched_systems]
+    outputs: [recovery_status, restored_systems, integrity_check_passed]
+    timeout_sec: 86400
+    retry_policy:
+      max_retries: 2
+      backoff_sec: 300
+
+  - id: lessons_learned
+    type: human
+    purpose: Conduct post-incident review with all stakeholders within 72 hours
+    role: security_team
+    inputs: [incident_id, triage_assessment, containment_actions_taken, eradication_report, recovery_status]
+    outputs: [root_cause, timeline, improvement_actions, postmortem_url]
+    timeout_sec: 259200
+    explain: |
+      Blameless postmortem covering: detection gaps, containment effectiveness,
+      eradication completeness, and recovery time. Produces action items
+      with owners and deadlines.
+
+  - id: update_playbooks
+    type: agent
+    purpose: Analyze lessons learned and suggest updates to detection rules and response playbooks
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+    inputs: [root_cause, improvement_actions, alert_type]
+    outputs: [new_detection_rules, playbook_updates, training_recommendations]
+    timeout_sec: 60
+
+edges:
+  - from: detect_alert
+    to: initial_triage
+    mode: sequential
+
+  - from: initial_triage
+    to: contain_threat
+    mode: sequential
+
+  - from: contain_threat
+    to: incident_commander_review
+    mode: sequential
+
+  - from: incident_commander_review
+    to: eradicate_threat
+    mode: conditional
+    condition: "investigation_authorized == true"
+
+  - from: eradicate_threat
+    to: recover_systems
+    mode: sequential
+
+  - from: recover_systems
+    to: lessons_learned
+    mode: conditional
+    condition: "integrity_check_passed == true"
+
+  - from: recover_systems
+    to: eradicate_threat
+    mode: fallback
+    label: "Integrity check failed, re-eradicate"
+
+  - from: lessons_learned
+    to: update_playbooks
+    mode: sequential

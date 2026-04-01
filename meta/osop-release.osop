@@ -1,0 +1,118 @@
+osop_version: "1.0"
+id: osop-release
+name: "OSOP Package Release"
+description: "Release workflow for publishing OSOP packages to npm/PyPI. Includes version bump, tests, build, and publish."
+version: "1.0.0"
+owner: osop-team
+tags: [meta, dogfooding, release, cicd]
+
+nodes:
+  - id: version-bump
+    type: cli
+    name: "Bump Version"
+    purpose: "Update version in package.json or pyproject.toml"
+    runtime:
+      command: "npm version patch"
+    security:
+      risk_level: low
+
+  - id: run-tests
+    type: cicd
+    subtype: test
+    name: "Run Test Suite"
+    purpose: "Execute all tests to ensure release quality"
+    security:
+      risk_level: low
+    timeout_sec: 300
+
+  - id: build
+    type: cli
+    name: "Build Package"
+    purpose: "Build distribution artifacts"
+    security:
+      risk_level: low
+
+  - id: validate-osop
+    type: mcp
+    subtype: tool
+    name: "OSOP Self-Validate"
+    purpose: "Validate all .osop examples in the repo still pass"
+    runtime:
+      tool: osop.validate
+    security:
+      risk_level: low
+
+  - id: approval
+    type: human
+    subtype: approval
+    name: "Release Approval"
+    purpose: "Maintainer reviews changelog and approves release"
+    role: maintainer
+    approval_gate:
+      required: true
+      approver_role: maintainer
+
+  - id: publish
+    type: cli
+    name: "Publish to Registry"
+    purpose: "Publish to npm or PyPI"
+    runtime:
+      command: "npm publish"
+    security:
+      permissions: ["write:npm-registry"]
+      secrets: ["NPM_TOKEN"]
+      risk_level: high
+    timeout_sec: 120
+
+  - id: git-tag
+    type: git
+    subtype: tag
+    name: "Create Git Tag"
+    purpose: "Tag the release commit"
+    runtime:
+      command: "git tag v${VERSION} && git push --tags"
+    security:
+      risk_level: medium
+
+  - id: notify
+    type: api
+    subtype: webhook
+    name: "Announce Release"
+    purpose: "Post release notification to Discord/Slack"
+    security:
+      secrets: ["DISCORD_WEBHOOK"]
+      risk_level: low
+
+edges:
+  - from: version-bump
+    to: run-tests
+    mode: sequential
+
+  - from: run-tests
+    to: build
+    mode: sequential
+
+  - from: build
+    to: validate-osop
+    mode: sequential
+
+  - from: validate-osop
+    to: approval
+    mode: sequential
+
+  - from: approval
+    to: publish
+    mode: sequential
+
+  - from: publish
+    to: git-tag
+    mode: sequential
+
+  - from: git-tag
+    to: notify
+    mode: sequential
+
+  - from: publish
+    to: notify
+    mode: fallback
+    label: "Publish failed, notify team"

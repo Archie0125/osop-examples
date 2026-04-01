@@ -1,0 +1,125 @@
+osop_version: "1.0"
+id: osop-pr-submission
+name: "OSOP External PR Submission"
+description: "Standard workflow for submitting OSOP adoption PRs to external repositories. Dogfooding: this workflow itself is an OSOP file."
+version: "1.0.0"
+owner: osop-team
+tags: [meta, dogfooding, pr, adoption]
+
+nodes:
+  - id: identify-target
+    type: agent
+    subtype: explore
+    name: "Identify Target Repo"
+    purpose: "Research the target repo: tech stack, workflow format, contribution guide"
+    security:
+      risk_level: low
+
+  - id: create-example
+    type: agent
+    subtype: llm
+    name: "Create .osop Example"
+    purpose: "Write a relevant .osop workflow example for the target repo's domain"
+    security:
+      risk_level: low
+
+  - id: validate-example
+    type: mcp
+    subtype: tool
+    name: "Validate OSOP File"
+    purpose: "Run osop.validate to ensure the example is schema-compliant"
+    runtime:
+      tool: osop.validate
+    security:
+      risk_level: low
+
+  - id: risk-assess
+    type: mcp
+    subtype: tool
+    name: "Risk Assessment"
+    purpose: "Run osop.risk_assess to verify the example doesn't flag false positives"
+    runtime:
+      tool: osop.risk_assess
+    security:
+      risk_level: low
+
+  - id: write-pr
+    type: agent
+    subtype: llm
+    name: "Write PR Description"
+    purpose: "Draft PR title and body using the external-pr-template.md"
+    security:
+      risk_level: low
+
+  - id: review-pr
+    type: human
+    subtype: review
+    name: "Review PR Before Submit"
+    purpose: "Human review of the PR content, example quality, and tone"
+    role: maintainer
+    approval_gate:
+      required: true
+      approver_role: maintainer
+    security:
+      risk_level: low
+
+  - id: submit-pr
+    type: git
+    subtype: pr
+    name: "Submit PR"
+    purpose: "Create the PR on GitHub via gh CLI"
+    runtime:
+      command: "gh pr create"
+    security:
+      permissions: ["write:github-pr"]
+      risk_level: medium
+
+  - id: track-response
+    type: human
+    subtype: input
+    name: "Track Response"
+    purpose: "Monitor for maintainer feedback within 48 hours"
+    security:
+      risk_level: low
+
+  - id: follow-up
+    type: agent
+    subtype: llm
+    name: "Address Feedback"
+    purpose: "Respond to review comments and update PR if needed"
+    security:
+      risk_level: low
+
+edges:
+  - from: identify-target
+    to: create-example
+    mode: sequential
+
+  - from: create-example
+    to: validate-example
+    mode: sequential
+
+  - from: validate-example
+    to: risk-assess
+    mode: sequential
+
+  - from: risk-assess
+    to: write-pr
+    mode: sequential
+
+  - from: write-pr
+    to: review-pr
+    mode: sequential
+
+  - from: review-pr
+    to: submit-pr
+    mode: sequential
+
+  - from: submit-pr
+    to: track-response
+    mode: sequential
+
+  - from: track-response
+    to: follow-up
+    mode: conditional
+    when: "has_feedback == true"

@@ -1,0 +1,130 @@
+osop_version: "1.0"
+id: osop-community-outreach
+name: "OSOP Community Outreach Campaign"
+description: "Workflow for engaging a new community/ecosystem with OSOP. Used for tracking international adoption waves."
+version: "1.0.0"
+owner: osop-team
+tags: [meta, dogfooding, outreach, community]
+
+nodes:
+  - id: research-community
+    type: agent
+    subtype: explore
+    name: "Research Target Community"
+    purpose: "Understand the community: top repos, workflow formats, pain points, key influencers"
+    security:
+      risk_level: low
+    cost:
+      estimated: 0.10
+      currency: USD
+
+  - id: identify-repos
+    type: agent
+    subtype: llm
+    name: "Identify Top 10 Repos"
+    purpose: "Find the highest-impact repos for OSOP adoption PRs"
+    security:
+      risk_level: low
+    cost:
+      estimated: 0.05
+      currency: USD
+
+  - id: create-content
+    type: agent
+    subtype: llm
+    name: "Create Localized Content"
+    purpose: "Write blog post or tutorial in the community's primary language"
+    security:
+      risk_level: low
+    cost:
+      estimated: 0.20
+      currency: USD
+
+  - id: submit-prs
+    type: gateway
+    subtype: parallel
+    name: "Submit PRs (Parallel)"
+    purpose: "Fork into parallel PR submissions to multiple repos"
+
+  - id: pr-batch-1
+    type: git
+    subtype: pr
+    name: "PR Batch: Tier 1 Repos"
+    purpose: "Submit PRs to the top 3 highest-impact repos"
+    security:
+      permissions: ["write:github-pr"]
+      risk_level: medium
+
+  - id: pr-batch-2
+    type: git
+    subtype: pr
+    name: "PR Batch: Tier 2 Repos"
+    purpose: "Submit PRs to the next 3-5 repos"
+    security:
+      permissions: ["write:github-pr"]
+      risk_level: medium
+
+  - id: publish-content
+    type: api
+    subtype: rest
+    name: "Publish Blog/Tutorial"
+    purpose: "Post content to community platforms (Dev.to, Qiita, Medium, etc.)"
+    security:
+      secrets: ["BLOG_API_KEY"]
+      risk_level: low
+
+  - id: track-metrics
+    type: agent
+    subtype: llm
+    name: "Track Adoption Metrics"
+    purpose: "Monitor PR merges, star growth, community mentions after 1 week"
+    security:
+      risk_level: low
+
+  - id: retrospective
+    type: human
+    subtype: review
+    name: "Campaign Retrospective"
+    purpose: "Review what worked, what didn't, update strategy for next wave"
+    role: maintainer
+
+edges:
+  - from: research-community
+    to: identify-repos
+    mode: sequential
+
+  - from: identify-repos
+    to: create-content
+    mode: parallel
+
+  - from: identify-repos
+    to: submit-prs
+    mode: parallel
+
+  - from: submit-prs
+    to: pr-batch-1
+    mode: parallel
+
+  - from: submit-prs
+    to: pr-batch-2
+    mode: parallel
+
+  - from: create-content
+    to: publish-content
+    mode: sequential
+
+  - from: pr-batch-1
+    to: track-metrics
+    mode: sequential
+
+  - from: pr-batch-2
+    to: track-metrics
+    mode: sequential
+
+  - from: publish-content
+    to: track-metrics
+    mode: sequential
+
+  - from: track-metrics
+    to: retrospective
+    mode: sequential

@@ -54,13 +54,14 @@ osop run devops/ci-build-test-deploy.osop.yaml --dry-run
 | `infrastructure/ssl-cert-renewal.osop.yaml` | Automated SSL certificate renewal with DNS validation |
 | `infrastructure/disaster-recovery-failover.osop.yaml` | DR failover: health check, DNS switch, data sync verification |
 
-### AI Agent (3 examples)
+### AI Agent (3 examples + 1 execution log)
 
 | File | Description |
 |------|-------------|
 | `ai-agent/rag-pipeline.osop.yaml` | RAG pipeline: ingest, chunk, embed, index, query |
 | `ai-agent/model-evaluation.osop.yaml` | LLM evaluation: generate, judge, aggregate scores, report |
 | `ai-agent/agent-tool-selection.osop.yaml` | Multi-tool agent: decide tool, execute, validate output, retry |
+| `ai-agent/research-and-summarize.osoplog.yaml` | Example `.osoplog` execution record: research workflow with retries, cost tracking, and human approval |
 
 ### Data (4 examples)
 

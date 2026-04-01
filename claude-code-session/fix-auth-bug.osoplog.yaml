@@ -1,0 +1,261 @@
+osoplog_version: "1.0"
+run_id: "cc-20260401-fix-auth-race"
+workflow_id: "claude-code-fix-auth-bug"
+workflow_version: "1.0.0"
+mode: "live"
+status: "COMPLETED"
+
+trigger:
+  type: "manual"
+  actor: "user"
+  timestamp: "2026-04-01T14:00:00Z"
+
+started_at: "2026-04-01T14:00:00Z"
+ended_at: "2026-04-01T14:03:12Z"
+duration_ms: 192000
+
+runtime:
+  agent: "claude-code"
+  model: "claude-opus-4-6"
+  platform: "win32-x64"
+
+node_records:
+  - node_id: "user_report"
+    node_type: "human"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:00:00Z"
+    ended_at: "2026-04-01T14:00:15Z"
+    duration_ms: 15000
+    outputs:
+      bug_description: "Token refresh fails intermittently under concurrent requests. ~5% failure rate in production."
+      reproduction: "Send 3+ API requests simultaneously after token expiry"
+    human_metadata:
+      actor: "user"
+      decision: "investigate"
+
+  - node_id: "coordinator"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:00:15Z"
+    ended_at: "2026-04-01T14:00:25Z"
+    duration_ms: 10000
+    outputs:
+      plan: "Spawn 3 explore agents: auth module, test coverage, error history"
+      children_spawned: 3
+    ai_metadata:
+      model: "claude-opus-4-6"
+      prompt_tokens: 3200
+      completion_tokens: 800
+      cost_usd: 0.008
+
+  - node_id: "explore_auth"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:00:25Z"
+    ended_at: "2026-04-01T14:00:55Z"
+    duration_ms: 30000
+    parent_id: "coordinator"
+    spawn_index: 1
+    isolation: "none"
+    outputs:
+      findings:
+        - "refreshToken() in src/auth/token.ts has no concurrency guard"
+        - "Multiple callers can trigger simultaneous refresh requests"
+        - "Second refresh invalidates the first's response"
+    ai_metadata:
+      model: "claude-haiku-4-5"
+      prompt_tokens: 8500
+      completion_tokens: 1200
+      cost_usd: 0.004
+    tools_used:
+      - tool: "Read"
+        calls: 5
+        details:
+          - { file: "src/auth/token.ts", lines: "1-120", result: "found refreshToken() with no lock" }
+          - { file: "src/auth/client.ts", lines: "45-90", result: "found 3 callers of refreshToken()" }
+          - { file: "src/auth/types.ts", result: "TokenState interface, no mutex field" }
+          - { file: "src/auth/interceptor.ts", result: "axios interceptor calls refreshToken on 401" }
+          - { file: "src/config/auth.ts", result: "token TTL = 3600s, refresh buffer = 300s" }
+      - tool: "Grep"
+        calls: 2
+        details:
+          - { pattern: "refreshToken", matches: 18 }
+          - { pattern: "concurrent|mutex|lock", matches: 0 }
+
+  - node_id: "explore_tests"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:00:25Z"
+    ended_at: "2026-04-01T14:00:48Z"
+    duration_ms: 23000
+    parent_id: "coordinator"
+    spawn_index: 2
+    isolation: "none"
+    outputs:
+      findings:
+        - "test/auth/token.test.ts exists but only tests single-request refresh"
+        - "No concurrent refresh test case"
+        - "Test coverage: 72% for auth module"
+    ai_metadata:
+      model: "claude-haiku-4-5"
+      prompt_tokens: 6200
+      completion_tokens: 800
+      cost_usd: 0.003
+    tools_used:
+      - tool: "Read"
+        calls: 2
+        details:
+          - { file: "test/auth/token.test.ts", result: "5 test cases, all sequential" }
+          - { file: "coverage/lcov-report/auth/index.html", result: "72% line coverage" }
+      - tool: "Grep"
+        calls: 1
+        details:
+          - { pattern: "concurrent|parallel|Promise.all", matches: 0 }
+
+  - node_id: "explore_logs"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:00:25Z"
+    ended_at: "2026-04-01T14:00:50Z"
+    duration_ms: 25000
+    parent_id: "coordinator"
+    spawn_index: 3
+    isolation: "none"
+    outputs:
+      findings:
+        - "git log shows refreshToken unchanged for 8 months"
+        - "No related issues in git history"
+        - "Error pattern: 'invalid_grant' appearing in bursts"
+    ai_metadata:
+      model: "claude-haiku-4-5"
+      prompt_tokens: 5800
+      completion_tokens: 600
+      cost_usd: 0.002
+    tools_used:
+      - tool: "Bash"
+        calls: 2
+        details:
+          - { command: "git log --oneline -20 -- src/auth/", result: "no recent changes" }
+          - { command: "git log --all --grep='refresh' --oneline", result: "3 commits, all 8+ months old" }
+      - tool: "Grep"
+        calls: 1
+        details:
+          - { pattern: "invalid_grant", matches: 4 }
+
+  - node_id: "synthesize"
+    node_type: "agent"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:00:55Z"
+    ended_at: "2026-04-01T14:01:15Z"
+    duration_ms: 20000
+    outputs:
+      root_cause: "Race condition in refreshToken() — concurrent 401 responses trigger multiple refresh calls, second invalidates first's token"
+      fix_strategy: "mutex"
+    ai_metadata:
+      model: "claude-opus-4-6"
+      prompt_tokens: 12000
+      completion_tokens: 2400
+      cost_usd: 0.025
+      confidence: 0.92
+    reasoning:
+      question: "How to fix the concurrent token refresh race condition?"
+      alternatives:
+        - id: "mutex"
+          description: "Add a promise-based mutex lock around refreshToken()"
+          pros: ["simple ~10 lines", "no new dependencies", "proven pattern"]
+          cons: ["potential deadlock if refresh hangs"]
+        - id: "dedup"
+          description: "Deduplicate concurrent refresh calls — return same promise to all callers"
+          pros: ["elegant", "no lock semantics", "naturally handles N callers"]
+          cons: ["slightly more complex state management"]
+        - id: "queue"
+          description: "Queue all refresh requests, process one at a time"
+          pros: ["deterministic ordering", "easy to reason about"]
+          cons: ["needs queue infrastructure", "higher latency for waiting callers"]
+      selected: "mutex"
+      rationale: "Simplest fix with lowest risk. Deadlock mitigated by 5s timeout on the lock. Can upgrade to dedup pattern later if needed."
+      confidence: 0.92
+
+  - node_id: "write_fix"
+    node_type: "mcp"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:01:15Z"
+    ended_at: "2026-04-01T14:01:45Z"
+    duration_ms: 30000
+    outputs:
+      files_modified: ["src/auth/token.ts"]
+      lines_changed: 12
+      description: "Added isRefreshing flag + pendingRefresh promise. Concurrent callers await the same refresh promise."
+    tools_used:
+      - tool: "Edit"
+        calls: 1
+        side_effects: ["file_modified"]
+        idempotent: false
+        details:
+          - { file: "src/auth/token.ts", lines_changed: 12, description: "Added mutex guard to refreshToken()" }
+
+  - node_id: "write_test"
+    node_type: "mcp"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:01:45Z"
+    ended_at: "2026-04-01T14:02:10Z"
+    duration_ms: 25000
+    outputs:
+      files_modified: ["test/auth/token.test.ts"]
+      test_added: "should handle concurrent refresh requests"
+    tools_used:
+      - tool: "Edit"
+        calls: 1
+        side_effects: ["file_modified"]
+        details:
+          - { file: "test/auth/token.test.ts", lines_changed: 28, description: "Added concurrent refresh test with Promise.all" }
+
+  - node_id: "run_tests"
+    node_type: "cicd"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:02:10Z"
+    ended_at: "2026-04-01T14:02:42Z"
+    duration_ms: 32000
+    outputs:
+      result: "pass"
+      tests_run: 47
+      tests_passed: 47
+      tests_failed: 0
+      coverage: "78%"
+    tools_used:
+      - tool: "Bash"
+        calls: 1
+        details:
+          - { command: "npm test -- --coverage", exit_code: 0, result: "47/47 passed, 78% coverage" }
+
+  - node_id: "user_review"
+    node_type: "human"
+    attempt: 1
+    status: "COMPLETED"
+    started_at: "2026-04-01T14:02:42Z"
+    ended_at: "2026-04-01T14:03:12Z"
+    duration_ms: 30000
+    human_metadata:
+      actor: "user"
+      decision: "approved"
+      notes: "Clean fix, good test coverage. Ship it."
+
+result_summary: "Fixed auth token refresh race condition. Root cause: concurrent 401 responses triggered parallel refreshToken() calls. Fix: added mutex guard (12 lines). Added concurrent refresh regression test. All 47 tests pass, coverage 72%→78%. 3 sub-agents explored codebase in parallel (30s), main agent synthesized and fixed (2m)."
+
+cost:
+  total_usd: 0.042
+  breakdown:
+    - { node_id: "coordinator", cost_usd: 0.008 }
+    - { node_id: "explore_auth", cost_usd: 0.004 }
+    - { node_id: "explore_tests", cost_usd: 0.003 }
+    - { node_id: "explore_logs", cost_usd: 0.002 }
+    - { node_id: "synthesize", cost_usd: 0.025 }

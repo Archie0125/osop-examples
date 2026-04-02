@@ -41,7 +41,7 @@ nodes:
       currency: USD
 
   - id: submit-prs
-    type: gateway
+    type: system
     subtype: parallel
     name: "Submit PRs (Parallel)"
     purpose: "Fork into parallel PR submissions to multiple repos"

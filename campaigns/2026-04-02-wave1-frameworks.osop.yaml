@@ -1,0 +1,174 @@
+# OSOP Campaign: Wave 1 — Major AI Framework PRs
+# First wave targeting the biggest AI repos (55k-15k stars)
+osop_version: "1.0"
+id: campaign-2026-04-02-wave1-frameworks
+name: "Day 2 Wave 1: Major AI Frameworks — 12 PRs"
+description: >
+  Massive PR wave to top AI frameworks: Dify (55k), MetaGPT (45k),
+  Flowise (35k), AutoGen (35k), CrewAI (25k), Semantic Kernel (23k),
+  OpenAI Swarm (18k), Haystack (18k), Prefect (17k), Phidata (15k),
+  plus awesome-ai-agents and awesome-workflow-engines.
+version: "1.0.0"
+tags: [campaign, frameworks, wave-1, day-2]
+
+nodes:
+  - id: prepare-examples
+    type: agent
+    subtype: planner
+    name: Prepare PR-Ready Examples
+    description: "Created 10 .osop example files tailored to each framework's use case."
+
+  - id: pr-dify
+    type: git
+    subtype: pr
+    name: "PR: langgenius/dify #34449"
+    description: "RAG chatbot workflow. CI passed (anti-slop + labeler). Waiting for maintainer review."
+    purpose: "55k stars — Chinese-origin AI builder, largest target"
+
+  - id: pr-metagpt
+    type: git
+    subtype: pr
+    name: "PR: FoundationAgents/MetaGPT #1995"
+    description: "Software team role orchestration. Unit tests passed, full tests queued."
+    purpose: "45k stars — Role-based multi-agent"
+
+  - id: pr-flowise
+    type: git
+    subtype: pr
+    name: "PR: FlowiseAI/Flowise #6122"
+    description: "RAG chatflow example. Gemini review: provider nesting + model version. FIXED both."
+    purpose: "35k stars — Visual chatflow builder"
+
+  - id: pr-autogen
+    type: git
+    subtype: pr
+    name: "PR: ag2ai/ag2 #2540"
+    description: "Multi-agent debate pattern. CLA check pending — needs manual signature."
+    purpose: "35k stars — Microsoft's multi-agent framework"
+
+  - id: pr-crewai
+    type: git
+    subtype: pr
+    name: "PR: crewAIInc/crewAI-examples #361"
+    description: "OSOP interop with converter docs. Snyk security passed. Waiting for review."
+    purpose: "25k stars — Most YAML-aligned framework"
+
+  - id: pr-semantic-kernel
+    type: git
+    subtype: pr
+    name: "PR: microsoft/semantic-kernel #13727"
+    description: >
+      Code review pipeline. Review flagged: no Python code (concepts/ needs runnable samples),
+      PyPI trust concern. FIXED: added osop_workflow_reader.py that creates SK ChatCompletionAgents
+      from OSOP YAML, removed pip install.
+    purpose: "23k stars — Microsoft's AI orchestration SDK"
+
+  - id: pr-swarm
+    type: git
+    subtype: pr
+    name: "PR: openai/swarm #76"
+    description: "Agent handoff pattern (triage → billing/technical/sales). No CI configured. Waiting."
+    purpose: "18k stars — OpenAI's educational agent framework"
+
+  - id: pr-haystack
+    type: git
+    subtype: pr
+    name: "PR: deepset-ai/haystack #11024"
+    description: "RAG pipeline with embedder/retriever/generator. CLA pending + Vercel deploy auth (their issue)."
+    purpose: "18k stars — NLP pipeline framework"
+
+  - id: pr-prefect
+    type: git
+    subtype: pr
+    name: "PR: PrefectHQ/prefect #21395"
+    description: "Data pipeline with retry and error edges. All 8 CI checks passed!"
+    purpose: "17k stars — Data workflow orchestration"
+
+  - id: pr-agno
+    type: git
+    subtype: pr
+    name: "PR: agno-agi/agno #7290"
+    description: "Research agent workflow. Bot required linked issue — created #7293 and linked."
+    purpose: "15k stars — Agent workflow platform (formerly Phidata)"
+
+  - id: pr-awesome-agents
+    type: git
+    subtype: pr
+    name: "PR: e2b-dev/awesome-ai-agents #648"
+    description: "Added OSOP to open-source projects section. No CI, waiting for review."
+    purpose: "15k stars — Curated AI agents list"
+
+  - id: pr-awesome-engines
+    type: git
+    subtype: pr
+    name: "PR: meirwah/awesome-workflow-engines #201"
+    description: "Added OSOP with stars badge. No CI, waiting for review."
+    purpose: "Workflow engines directory"
+
+  - id: fix-flowise
+    type: agent
+    subtype: worker
+    name: Fix Flowise Review
+    description: "Moved provider out of config nesting, updated gpt-4 → gpt-4o."
+
+  - id: fix-sk
+    type: agent
+    subtype: worker
+    name: Fix Semantic Kernel Review
+    description: "Added osop_workflow_reader.py (runnable Python), removed pip install osop, fixed filename mismatch."
+
+  - id: fix-agno
+    type: agent
+    subtype: worker
+    name: Fix Agno Issue Link
+    description: "Created issue #7293 and linked to PR with 'fixes #7293'."
+
+edges:
+  - from: prepare-examples
+    to: pr-dify
+    mode: parallel
+  - from: prepare-examples
+    to: pr-metagpt
+    mode: parallel
+  - from: prepare-examples
+    to: pr-flowise
+    mode: parallel
+  - from: prepare-examples
+    to: pr-autogen
+    mode: parallel
+  - from: prepare-examples
+    to: pr-crewai
+    mode: parallel
+  - from: prepare-examples
+    to: pr-semantic-kernel
+    mode: parallel
+  - from: prepare-examples
+    to: pr-swarm
+    mode: parallel
+  - from: prepare-examples
+    to: pr-haystack
+    mode: parallel
+  - from: prepare-examples
+    to: pr-prefect
+    mode: parallel
+  - from: prepare-examples
+    to: pr-agno
+    mode: parallel
+  - from: prepare-examples
+    to: pr-awesome-agents
+    mode: parallel
+  - from: prepare-examples
+    to: pr-awesome-engines
+    mode: parallel
+  - from: pr-flowise
+    to: fix-flowise
+    mode: fallback
+    label: "Gemini: provider nesting + model"
+  - from: pr-semantic-kernel
+    to: fix-sk
+    mode: fallback
+    label: "Bot: needs Python code + trust concern"
+  - from: pr-agno
+    to: fix-agno
+    mode: fallback
+    label: "Bot: missing issue link"

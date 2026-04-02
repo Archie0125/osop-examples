@@ -1,0 +1,105 @@
+# OSOP Campaign: Wave 2 — Expansion to Orchestrators + More Awesome Lists
+osop_version: "1.0"
+id: campaign-2026-04-02-wave2-expansion
+name: "Day 2 Wave 2: Orchestrators + Awesome Lists — 7 PRs"
+description: >
+  Second wave targeting workflow orchestrators (CAMEL-AI, Kestra, Windmill,
+  Trigger.dev) and more awesome lists (awesome-langchain, awesome-n8n, awesome-argo).
+  CAMEL-AI PR was closed by maintainer ("not on roadmap").
+version: "1.0.0"
+tags: [campaign, orchestrators, awesome-lists, wave-2, day-2]
+
+nodes:
+  - id: select-targets
+    type: agent
+    subtype: planner
+    name: Select Wave 2 Targets
+    description: "Picked repos from TARGETS.md that hadn't been submitted yet."
+
+  - id: pr-camel
+    type: git
+    subtype: pr
+    name: "PR: camel-ai/camel #3983 — CLOSED"
+    description: >
+      Society of mind pattern. Their CI failed (add-labels 403 permission + pytest needs OPENAI_API_KEY).
+      Maintainer fengju0213 closed: "Not on our roadmap at the moment."
+      LESSON: Some repos reject external format PRs. Move on quickly.
+    purpose: "6k stars — multi-agent role-playing"
+
+  - id: pr-kestra
+    type: git
+    subtype: pr
+    name: "PR: kestra-io/kestra #15371"
+    description: "ETL pipeline example. Welcome bot greeted, CI passed. Waiting for review."
+    purpose: "12k stars — YAML-native orchestrator (philosophy-aligned)"
+
+  - id: pr-windmill
+    type: git
+    subtype: pr
+    name: "PR: windmill-labs/windmill #8670"
+    description: "API data sync workflow. CLA check failed — needs signature."
+    purpose: "10k stars — YAML workflow builder"
+
+  - id: pr-triggerdev
+    type: git
+    subtype: pr
+    name: "PR: triggerdotdev/trigger.dev #3314"
+    description: "Background job pipeline. CodeRabbit + Devin reviewed, all passed."
+    purpose: "10k stars — Modern job orchestration"
+
+  - id: pr-awesome-langchain
+    type: git
+    subtype: pr
+    name: "PR: kyrolabs/awesome-langchain #274"
+    description: "Added langchain-osop entry. No CI, waiting for review."
+    purpose: "LangChain ecosystem directory"
+
+  - id: pr-awesome-n8n
+    type: git
+    subtype: pr
+    name: "PR: restyler/awesome-n8n #28"
+    description: "Added n8n-nodes-osop entry. GitGuardian passed."
+    purpose: "n8n ecosystem directory"
+
+  - id: pr-awesome-argo
+    type: git
+    subtype: pr
+    name: "PR: akuity/awesome-argo #101"
+    description: "Added osop-interop Argo converter. No CI configured."
+    purpose: "Argo ecosystem directory"
+
+  - id: rejection-lesson
+    type: human
+    subtype: review
+    name: "Lesson Learned: CAMEL Rejection"
+    description: >
+      CAMEL-AI closed our PR immediately. Key takeaway: not all repos welcome
+      external format integrations. Best targets are repos that already use YAML
+      workflows or have a community examples section. Move fast, don't dwell on rejections.
+
+edges:
+  - from: select-targets
+    to: pr-camel
+    mode: parallel
+  - from: select-targets
+    to: pr-kestra
+    mode: parallel
+  - from: select-targets
+    to: pr-windmill
+    mode: parallel
+  - from: select-targets
+    to: pr-triggerdev
+    mode: parallel
+  - from: select-targets
+    to: pr-awesome-langchain
+    mode: parallel
+  - from: select-targets
+    to: pr-awesome-n8n
+    mode: parallel
+  - from: select-targets
+    to: pr-awesome-argo
+    mode: parallel
+  - from: pr-camel
+    to: rejection-lesson
+    mode: fallback
+    label: "Maintainer closed — not on roadmap"

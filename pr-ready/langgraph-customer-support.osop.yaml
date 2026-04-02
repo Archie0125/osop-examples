@@ -1,0 +1,95 @@
+# LangGraph Customer Support Bot — OSOP Portable Workflow
+#
+# A stateful support agent: classifies the user's intent, routes to a
+# specialist sub-graph (billing, technical, general), generates a response,
+# and escalates to a human when confidence is low.
+#
+# Run with LangGraph or validate: osop validate langgraph-customer-support.osop.yaml
+
+osop_version: "1.0"
+id: "langgraph-customer-support"
+name: "Customer Support Bot"
+description: "Intent-based routing with specialist agents and human escalation."
+version: "1.0.0"
+tags: [langgraph, langchain, chatbot, support, routing]
+
+nodes:
+  - id: "receive_message"
+    type: "api"
+    subtype: "webhook"
+    name: "Receive Customer Message"
+    description: "Incoming message from chat widget or messaging platform."
+
+  - id: "classify_intent"
+    type: "agent"
+    subtype: "llm"
+    name: "Classify Intent"
+    description: "Determine intent category and confidence score."
+    config:
+      model: "gpt-4o-mini"
+      output_schema: { intent: "string", confidence: "float" }
+
+  - id: "billing_specialist"
+    type: "agent"
+    subtype: "llm"
+    name: "Billing Specialist"
+    description: "Handles refunds, invoices, plan changes, and payment issues."
+    config:
+      tools: [lookup_subscription, issue_refund, generate_invoice]
+
+  - id: "technical_specialist"
+    type: "agent"
+    subtype: "llm"
+    name: "Technical Specialist"
+    description: "Handles bug reports, API questions, and integration help."
+    config:
+      tools: [search_docs, check_status_page, create_ticket]
+
+  - id: "general_agent"
+    type: "agent"
+    subtype: "llm"
+    name: "General Agent"
+    description: "Handles FAQs, account info, and general inquiries."
+
+  - id: "generate_response"
+    type: "agent"
+    subtype: "llm"
+    name: "Format Response"
+    description: "Polish the specialist output into a friendly customer message."
+
+  - id: "human_escalation"
+    type: "human"
+    subtype: "review"
+    name: "Human Agent Takeover"
+    description: "Route to a live agent when confidence is below threshold."
+
+edges:
+  - from: "receive_message"
+    to: "classify_intent"
+    mode: "sequential"
+  - from: "classify_intent"
+    to: "billing_specialist"
+    mode: "conditional"
+    when: "intent == 'billing'"
+  - from: "classify_intent"
+    to: "technical_specialist"
+    mode: "conditional"
+    when: "intent == 'technical'"
+  - from: "classify_intent"
+    to: "general_agent"
+    mode: "conditional"
+    when: "intent == 'general'"
+  - from: "classify_intent"
+    to: "human_escalation"
+    mode: "conditional"
+    when: "confidence < 0.6"
+    label: "Low confidence — escalate"
+  - from: "billing_specialist"
+    to: "generate_response"
+    mode: "sequential"
+  - from: "technical_specialist"
+    to: "generate_response"
+    mode: "sequential"
+  - from: "general_agent"
+    to: "generate_response"
+    mode: "sequential"

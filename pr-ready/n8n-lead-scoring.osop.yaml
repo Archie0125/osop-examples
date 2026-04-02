@@ -1,0 +1,83 @@
+# n8n Lead Scoring Workflow — OSOP Portable Workflow
+#
+# Automates lead qualification: a webhook receives form submissions,
+# enriches company data via Clearbit, scores the lead with an LLM,
+# updates HubSpot CRM, and pings Sales on Slack for hot leads.
+#
+# Import into n8n or validate with: osop validate n8n-lead-scoring.osop.yaml
+
+osop_version: "1.0"
+id: "n8n-lead-scoring"
+name: "Lead Scoring Automation"
+description: "Webhook-triggered pipeline that enriches, scores, and routes inbound leads."
+version: "1.0.0"
+tags: [n8n, sales, automation, crm, webhook]
+
+nodes:
+  - id: "webhook_trigger"
+    type: "api"
+    subtype: "webhook"
+    name: "Receive Lead Form"
+    description: "Webhook endpoint that captures new lead submissions."
+    config:
+      method: POST
+      path: /leads/inbound
+
+  - id: "enrich_company"
+    type: "api"
+    subtype: "rest"
+    name: "Enrich via Clearbit"
+    description: "Fetch company size, industry, and funding from Clearbit API."
+    config:
+      url: "https://company.clearbit.com/v2/companies/find"
+
+  - id: "score_lead"
+    type: "agent"
+    subtype: "llm"
+    name: "AI Lead Scoring"
+    description: "LLM evaluates enriched data and assigns a 0-100 score with rationale."
+    config:
+      model: "gpt-4o-mini"
+      temperature: 0.2
+
+  - id: "update_crm"
+    type: "api"
+    subtype: "rest"
+    name: "Update HubSpot"
+    description: "Push score and enrichment data to the HubSpot contact record."
+    config:
+      url: "https://api.hubapi.com/crm/v3/objects/contacts"
+
+  - id: "notify_sales"
+    type: "api"
+    subtype: "rest"
+    name: "Slack Notification"
+    description: "Post a message to #sales-leads for leads scoring above 70."
+    config:
+      url: "https://hooks.slack.com/services/..."
+
+  - id: "log_cold_lead"
+    type: "db"
+    name: "Archive Cold Lead"
+    description: "Store low-score leads in the nurture queue for drip campaigns."
+
+edges:
+  - from: "webhook_trigger"
+    to: "enrich_company"
+    mode: "sequential"
+  - from: "enrich_company"
+    to: "score_lead"
+    mode: "sequential"
+  - from: "score_lead"
+    to: "update_crm"
+    mode: "sequential"
+  - from: "update_crm"
+    to: "notify_sales"
+    mode: "conditional"
+    when: "score >= 70"
+    label: "Hot lead"
+  - from: "update_crm"
+    to: "log_cold_lead"
+    mode: "conditional"
+    when: "score < 70"
+    label: "Cold lead — nurture"

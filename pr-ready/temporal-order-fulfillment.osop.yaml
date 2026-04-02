@@ -1,0 +1,92 @@
+# Temporal Order Fulfillment — OSOP Portable Workflow
+#
+# Durable order processing: validate the order, reserve inventory, charge
+# payment, ship the order, and send confirmation. Each step is idempotent
+# with compensating actions for rollback on failure.
+#
+# Run with Temporal or validate: osop validate temporal-order-fulfillment.osop.yaml
+
+osop_version: "1.0"
+id: "temporal-order-fulfillment"
+name: "Order Fulfillment Saga"
+description: "Durable order processing with compensation on failure."
+version: "1.0.0"
+tags: [temporal, saga, e-commerce, workflow-engine]
+
+nodes:
+  - id: "validate_order"
+    type: "cli"
+    subtype: "script"
+    name: "Validate Order"
+    description: "Check item availability, shipping address, and order limits."
+
+  - id: "reserve_inventory"
+    type: "db"
+    name: "Reserve Inventory"
+    description: "Place a hold on items in the warehouse management system."
+    config:
+      compensate: "release_inventory"
+      timeout_minutes: 30
+
+  - id: "charge_payment"
+    type: "api"
+    subtype: "rest"
+    name: "Charge Payment"
+    description: "Authorize and capture payment via Stripe."
+    config:
+      url: "https://api.stripe.com/v1/charges"
+      compensate: "refund_payment"
+      retry_policy: { max_attempts: 3, backoff: "exponential" }
+
+  - id: "ship_order"
+    type: "api"
+    subtype: "rest"
+    name: "Create Shipment"
+    description: "Generate shipping label and schedule carrier pickup."
+    config:
+      compensate: "cancel_shipment"
+
+  - id: "send_confirmation"
+    type: "api"
+    subtype: "rest"
+    name: "Send Confirmation"
+    description: "Email order confirmation with tracking number to customer."
+
+  - id: "handle_return"
+    type: "human"
+    name: "Handle Return Request"
+    description: "Customer requests return — triggers reverse logistics."
+
+  - id: "compensation_handler"
+    type: "system"
+    name: "Run Compensations"
+    description: "Execute compensating transactions in reverse order on failure."
+
+edges:
+  - from: "validate_order"
+    to: "reserve_inventory"
+    mode: "sequential"
+  - from: "reserve_inventory"
+    to: "charge_payment"
+    mode: "sequential"
+  - from: "charge_payment"
+    to: "ship_order"
+    mode: "sequential"
+  - from: "ship_order"
+    to: "send_confirmation"
+    mode: "sequential"
+  - from: "send_confirmation"
+    to: "handle_return"
+    mode: "event"
+    when: "return_requested"
+    label: "Customer initiates return"
+  - from: "reserve_inventory"
+    to: "compensation_handler"
+    mode: "error"
+    label: "Any downstream step fails"
+  - from: "charge_payment"
+    to: "compensation_handler"
+    mode: "error"
+  - from: "ship_order"
+    to: "compensation_handler"
+    mode: "error"

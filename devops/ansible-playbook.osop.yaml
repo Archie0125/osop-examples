@@ -1,6 +1,6 @@
 # Ansible Playbook Execution Pipeline
 # Inventory validation, lint, dry-run, execute, and verify configuration
-osop_version: "2.0"
+osop_version: "1.0"
 id: ansible-playbook
 name: Ansible Playbook Execution Pipeline
 

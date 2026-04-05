@@ -1,6 +1,6 @@
 # ML Model Training Pipeline
 # Data preparation, distributed training, evaluation, model registry, and deployment
-osop_version: "2.0"
+osop_version: "1.0"
 id: model-training
 name: ML Model Training Pipeline
 

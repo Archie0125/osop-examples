@@ -1,6 +1,6 @@
 # Docker Build, Scan, and Push Pipeline
 # Multi-stage build with vulnerability scanning and multi-registry push
-osop_version: "2.0"
+osop_version: "1.0"
 id: docker-build-push
 name: Docker Build and Push Pipeline
 

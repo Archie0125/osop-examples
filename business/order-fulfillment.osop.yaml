@@ -1,6 +1,6 @@
 # Order Fulfillment Workflow
 # Order placement through inventory check, picking, packing, shipping, and delivery confirmation
-osop_version: "2.0"
+osop_version: "1.0"
 id: order-fulfillment
 name: Order Fulfillment Workflow
 

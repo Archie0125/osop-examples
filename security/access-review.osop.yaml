@@ -1,6 +1,6 @@
 # Access Review and Certification Workflow
 # Pull permissions, AI analysis, flag anomalies, manager review, remediate
-osop_version: "2.0"
+osop_version: "1.0"
 id: access-review
 name: Access Review and Certification
 

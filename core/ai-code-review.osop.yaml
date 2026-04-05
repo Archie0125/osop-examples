@@ -1,0 +1,36 @@
+osop_version: "1.0"
+id: "ai-code-review"
+name: "AI Code Review"
+description: "Agent reads a PR diff, provides review, human approves."
+tags: [ai-agent, code-review]
+
+nodes:
+  - id: "fetch-diff"
+    type: "api"
+    name: "Fetch PR Diff"
+    runtime:
+      method: "GET"
+      url: "https://api.github.com/repos/${inputs.repo}/pulls/${inputs.pr}/files"
+
+  - id: "review"
+    type: "agent"
+    name: "AI Reviews Code"
+    runtime:
+      provider: "anthropic"
+      model: "claude-sonnet-4-20250514"
+      system_prompt: "You are a senior code reviewer. Be concise and actionable."
+
+  - id: "approve"
+    type: "human"
+    subtype: "review"
+    name: "Developer Reviews AI Feedback"
+
+edges:
+  - from: "fetch-diff"
+    to: "review"
+  - from: "review"
+    to: "approve"
+  - from: "approve"
+    to: "review"
+    mode: "fallback"
+    label: "Rejected — AI re-reviews with feedback"

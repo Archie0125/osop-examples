@@ -1,0 +1,77 @@
+# 原始：SOP-23: 批次建立多則留言（AI 代發）
+osop_version: '1.0'
+id: sop-23-ai-batch-comments
+name: 'SOP-23: AI Batch Create Comments'
+description: AI agent creates multiple comments and replies on behalf of different users. Requires admin token.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- comments
+- ai-agent
+- batch
+nodes:
+- id: step_ai
+  type: agent
+  subtype: llm
+  name: AI generates comment content
+  description: AI agent generates comment and reply text for multiple users.
+- id: step_1
+  type: api
+  subtype: rest
+  name: GET /users
+  description: Get list of user IDs to comment on behalf of.
+  runtime:
+    method: GET
+    url: https://medi-rank.com/api/v1
+    endpoint: /users
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+- id: step_2
+  type: api
+  subtype: rest
+  name: POST /posts/{post_id}/comments
+  description: Post a comment as a specific user. Repeat for each comment in the batch.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /posts/{post_id}/comments
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    body:
+      content: AI-generated comment
+      user_id: ${user_id}
+- id: step_3
+  type: api
+  subtype: rest
+  name: POST /comments/{comment_id}/replies
+  description: Optionally reply to a comment as a different user.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /comments/{comment_id}/replies
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    body:
+      content: AI-generated reply
+      user_id: ${another_user_id}
+edges:
+- from: step_ai
+  to: step_1
+  mode: sequential
+- from: step_1
+  to: step_2
+  mode: sequential
+- from: step_2
+  to: step_2
+  mode: loop
+  when: more_comments_to_create
+- from: step_2
+  to: step_3
+  mode: conditional
+  when: reply_needed
+- from: step_3
+  to: step_2
+  mode: loop
+  when: more_comments_to_create

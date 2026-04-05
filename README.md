@@ -1,26 +1,45 @@
 # OSOP Examples
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+**Part of SOP Doc.** 113 workflow templates across 20+ domains.
 
-A collection of 30+ OSOP workflow templates covering 9 domains. Each example is a complete, valid `.osop.yaml` file that can be validated and run with the [OSOP CLI](https://github.com/osop/osop).
+API SOPs (Stripe, GitHub, MediRank), DevOps pipelines, AI agent chains, business processes, data pipelines, compliance workflows. Each example is a valid .osop.yaml file. Browse them at osop.ai/sop-doc.
 
-Website: [osop.ai](https://osop.ai) | GitHub: [github.com/osop/osop-examples](https://github.com/osop/osop-examples)
-
-## Usage
+## Quick Start
 
 ```bash
-# Clone the examples
-git clone https://github.com/osop/osop-examples.git
+# Clone
+git clone https://github.com/Archie0125/osop-examples.git
 cd osop-examples
 
 # Validate any example
-osop validate devops/ci-build-test-deploy.osop.yaml
+osop validate devops/github-actions-cicd.osop.yaml
 
-# Render a diagram
-osop render devops/ci-build-test-deploy.osop.yaml --format mermaid
+# Dry-run (see what would execute, no side effects)
+osop run demo/simple-agent-chain.osop.yaml --dry-run
 
-# Dry-run an example
-osop run devops/ci-build-test-deploy.osop.yaml --dry-run
+# Real execution with LLM calls (requires ANTHROPIC_API_KEY)
+export ANTHROPIC_API_KEY=sk-ant-...
+osop run demo/simple-agent-chain.osop.yaml
+
+# Execute CLI nodes (requires explicit opt-in)
+osop run devops/github-actions-cicd.osop.yaml --allow-exec
+
+# Generate execution log
+osop run demo/simple-agent-chain.osop.yaml --log output.osoplog.yaml
+```
+
+### Security
+
+- CLI nodes (shell commands) are **blocked by default**. Use `--allow-exec` after reviewing commands.
+- LLM costs are capped at **$1.00** by default. Override with `--max-cost`.
+- Risk assessment runs before execution. Critical findings block without `--allow-exec`.
+
+## Demo Workflow
+
+The `demo/simple-agent-chain.osop.yaml` runs a 3-agent chain: generate an idea, critique it, refine it. Each node calls Claude and passes output to the next.
+
+```bash
+osop run demo/simple-agent-chain.osop.yaml
 ```
 
 ## Examples by Domain

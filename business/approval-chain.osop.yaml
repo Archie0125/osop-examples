@@ -1,7 +1,7 @@
 # Multi-Level Approval Chain
 # Amount-based routing with manager, director, and finance stages
 
-osop_version: "2.0"
+osop_version: "1.0"
 id: approval-chain
 name: Multi-Level Approval Chain
 

@@ -1,0 +1,29 @@
+# 原始：SOP-03: 回覆留言
+osop_version: '1.0'
+id: sop-03-reply-to-comment
+name: 'SOP-03: Reply to a Comment'
+description: Post a nested reply to an existing comment.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- comments
+- replies
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: POST /comments/{comment_id}/replies
+  description: Post a nested reply to an existing comment with optional images.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /comments/{comment_id}/replies
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    content_type: multipart/form-data
+    body:
+      content: Reply text
+      images[]: (files)
+      user_id: 5

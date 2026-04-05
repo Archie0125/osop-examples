@@ -1,0 +1,108 @@
+osop_version: "1.0"
+id: "sop-github-pr-deploy"
+name: "GitHub PR Deploy Pipeline"
+description: "Get PR details, check CI status, create deployment, wait for status, post comment."
+tags: [api, github, deploy, cicd, sop]
+
+nodes:
+  - id: "get_pr"
+    type: "api"
+    subtype: "rest"
+    name: "GET /repos/{owner}/{repo}/pulls/{pr}"
+    description: "Fetch pull request details including head SHA"
+    runtime:
+      method: "GET"
+      url: "https://api.github.com"
+      endpoint: "/repos/Archie0125/osop/pulls/1"
+      headers:
+        Authorization: "Bearer ${secrets.GITHUB_TOKEN}"
+        Accept: "application/vnd.github.v3+json"
+    outputs:
+      - head_sha: "data.head.sha"
+      - pr_number: "data.number"
+
+  - id: "check_ci"
+    type: "api"
+    subtype: "rest"
+    name: "GET /repos/{owner}/{repo}/commits/{sha}/check-runs"
+    description: "Verify all CI checks have passed before deploying"
+    runtime:
+      method: "GET"
+      url: "https://api.github.com"
+      endpoint: "/repos/Archie0125/osop/commits/${get_pr.head_sha}/check-runs"
+      headers:
+        Authorization: "Bearer ${secrets.GITHUB_TOKEN}"
+    outputs:
+      - all_passed: "data.check_runs[*].conclusion == 'success'"
+
+  - id: "human_approval"
+    type: "human"
+    subtype: "review"
+    name: "Deploy Approval"
+    description: "Senior engineer reviews CI results and approves deployment"
+    security:
+      approval_gate: true
+      risk_level: "high"
+
+  - id: "create_deployment"
+    type: "api"
+    subtype: "rest"
+    name: "POST /repos/{owner}/{repo}/deployments"
+    description: "Create a new deployment for the PR head SHA"
+    runtime:
+      method: "POST"
+      url: "https://api.github.com"
+      endpoint: "/repos/Archie0125/osop/deployments"
+      headers:
+        Authorization: "Bearer ${secrets.GITHUB_TOKEN}"
+      body:
+        ref: "${get_pr.head_sha}"
+        environment: "production"
+        auto_merge: false
+    outputs:
+      - deployment_id: "data.id"
+
+  - id: "post_comment"
+    type: "agent"
+    subtype: "llm"
+    name: "Generate Deploy Summary"
+    description: "AI generates a deployment summary comment on the PR"
+    runtime:
+      provider: "anthropic"
+      model: "claude-haiku-4-5"
+      system_prompt: "Write a concise GitHub PR comment summarizing the deployment status. Include deployment ID and environment."
+
+  - id: "comment_api"
+    type: "api"
+    subtype: "rest"
+    name: "POST /repos/{owner}/{repo}/issues/{pr}/comments"
+    description: "Post the AI-generated summary as a PR comment"
+    runtime:
+      method: "POST"
+      url: "https://api.github.com"
+      endpoint: "/repos/Archie0125/osop/issues/${get_pr.pr_number}/comments"
+      headers:
+        Authorization: "Bearer ${secrets.GITHUB_TOKEN}"
+      body:
+        body: "${post_comment.output}"
+
+edges:
+  - from: "get_pr"
+    to: "check_ci"
+    mode: "sequential"
+  - from: "check_ci"
+    to: "human_approval"
+    mode: "conditional"
+    condition: "check_ci.all_passed == true"
+  - from: "human_approval"
+    to: "create_deployment"
+    mode: "sequential"
+  - from: "create_deployment"
+    to: "post_comment"
+    mode: "sequential"
+  - from: "post_comment"
+    to: "comment_api"
+    mode: "sequential"
+  - from: "check_ci"
+    to: "post_comment"
+    mode: "fallback"

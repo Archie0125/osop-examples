@@ -1,0 +1,54 @@
+osop_version: "1.0"
+id: "osop-import-existing"
+name: "Import Existing Workflows into SOP Doc"
+description: "Convert GitHub Actions, Airflow, n8n, CrewAI, Argo, or LangGraph workflows into .osop format. Your existing processes become SOP Doc entries."
+tags: [osop, sop-doc, import, convert, meta]
+
+nodes:
+  - id: "identify_source"
+    type: "human"
+    name: "Identify Source Format"
+    description: "What format are your existing workflows in? Supported: GitHub Actions YAML, Airflow DAG (Python), n8n JSON, CrewAI YAML, Argo Workflows YAML, LangGraph Python."
+
+  - id: "run_import"
+    type: "cli"
+    name: "osop import"
+    description: "Convert to OSOP format. The converter maps source-specific concepts (jobs, operators, tasks) to OSOP nodes and edges."
+    runtime:
+      command: "osop import .github/workflows/deploy.yml --from github-actions -o deploy.osop.yaml"
+
+  - id: "validate"
+    type: "cli"
+    name: "osop validate"
+    description: "Verify the converted file is valid OSOP."
+    runtime:
+      command: "osop validate deploy.osop.yaml"
+
+  - id: "review_visual"
+    type: "human"
+    subtype: "review"
+    name: "Review in Visual Editor"
+    description: "Open the converted .osop in the editor. Check that the flow matches your original workflow. Adjust if needed."
+
+  - id: "publish"
+    type: "mcp"
+    name: "Add to SOP Doc"
+    description: "The converted workflow is now an .osop file. Add it to your SOP Doc collection. Browse alongside your other SOPs."
+
+edges:
+  - from: "identify_source"
+    to: "run_import"
+    mode: "sequential"
+  - from: "run_import"
+    to: "validate"
+    mode: "sequential"
+  - from: "validate"
+    to: "run_import"
+    mode: "fallback"
+    label: "Fix conversion issues"
+  - from: "validate"
+    to: "review_visual"
+    mode: "sequential"
+  - from: "review_visual"
+    to: "publish"
+    mode: "sequential"

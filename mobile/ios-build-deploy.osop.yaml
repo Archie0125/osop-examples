@@ -1,7 +1,7 @@
 # iOS Build & Deploy Pipeline
 # Automates checkout through TestFlight distribution
 
-osop_version: "2.0"
+osop_version: "1.0"
 id: ios-build-deploy
 name: iOS Build & Deploy Pipeline
 

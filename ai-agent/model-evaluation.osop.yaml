@@ -1,6 +1,6 @@
 # ML Model Evaluation Workflow
 # Evaluate a candidate model against baseline and decide promotion or rollback.
-osop_version: "2.0"
+osop_version: "1.0"
 id: model-evaluation
 name: Model Evaluation and Promotion Pipeline
 

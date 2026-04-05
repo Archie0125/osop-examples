@@ -1,7 +1,7 @@
 # App Store Submission Workflow
 # End-to-end submission with AI-assisted release notes and rejection handling
 
-osop_version: "2.0"
+osop_version: "1.0"
 id: app-store-submission
 name: App Store Submission Workflow
 

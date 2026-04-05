@@ -1,6 +1,6 @@
 # Load Testing with k6
 # Configure, run load test, analyze metrics, report, alert on regression
-osop_version: "2.0"
+osop_version: "1.0"
 id: load-test-k6
 name: k6 Load Testing and Performance Analysis
 

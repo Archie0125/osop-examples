@@ -1,6 +1,6 @@
 # CrewAI Multi-Agent Pattern
 # Coordinator dispatches research, analysis, writing, and editing agents
-osop_version: "2.0"
+osop_version: "1.0"
 id: crewai-pattern
 name: CrewAI Research Report Pipeline
 

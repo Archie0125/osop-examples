@@ -1,0 +1,51 @@
+# Simple Agent Chain — Demo workflow for osop run
+# Tests: sequential agent execution with data flow between nodes
+osop_version: "1.0"
+id: simple-agent-chain
+name: Simple Agent Chain Demo
+description: "A 3-node workflow: generate an idea, critique it, then refine it."
+tags: [demo, agent, sequential]
+
+nodes:
+  - id: generate
+    type: agent
+    name: "Generate Idea"
+    purpose: "Generate a creative startup idea for the AI agent space."
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "You are a creative startup ideator. Generate one specific, actionable startup idea in 2-3 sentences."
+      max_tokens: 200
+    outputs: [startup_idea]
+
+  - id: critique
+    type: agent
+    name: "Critique Idea"
+    purpose: "Provide honest, constructive criticism of the startup idea."
+    inputs: [startup_idea]
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "You are a critical startup advisor. Identify the top 3 weaknesses of this idea in bullet points."
+      max_tokens: 300
+    outputs: [critique_points]
+
+  - id: refine
+    type: agent
+    name: "Refine Idea"
+    purpose: "Refine the startup idea based on the critique, producing a stronger version."
+    inputs: [startup_idea, critique_points]
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "You are a startup strategist. Take the original idea and the criticism, then produce an improved 3-sentence pitch."
+      max_tokens: 300
+    outputs: [refined_pitch]
+
+edges:
+  - from: generate
+    to: critique
+    mode: sequential
+  - from: critique
+    to: refine
+    mode: sequential

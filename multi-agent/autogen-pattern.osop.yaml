@@ -1,6 +1,6 @@
 # AutoGen Multi-Agent Pattern
 # User proxy, assistant, code executor, and validator in conversational loop
-osop_version: "2.0"
+osop_version: "1.0"
 id: autogen-pattern
 name: AutoGen Conversational Agent Pipeline
 

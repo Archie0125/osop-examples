@@ -1,6 +1,6 @@
 # Agent Handoff Chain
 # Classify customer queries and route to the right specialist agent.
-osop_version: "2.0"
+osop_version: "1.0"
 id: agent-handoff-chain
 name: Customer Query Routing and Handoff
 

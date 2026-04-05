@@ -1,6 +1,6 @@
 # RAG (Retrieval-Augmented Generation) Pipeline
 # Ingest documents, chunk, embed, store, then query and generate answers.
-osop_version: "2.0"
+osop_version: "1.0"
 id: rag-pipeline
 name: RAG Document Pipeline
 

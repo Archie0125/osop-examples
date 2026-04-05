@@ -1,54 +1,52 @@
-# CrewAI Research Pipeline — OSOP Portable Workflow
+# CrewAI Research Pipeline — OSOP Workflow
 #
-# A three-agent research crew: Researcher gathers sources, Analyst extracts
-# insights, Writer produces a polished report. Demonstrates how CrewAI crews
-# map 1:1 to OSOP nodes, making the workflow portable across any runtime.
+# Three-agent research crew: Researcher gathers sources, Analyst extracts
+# insights, Writer produces a polished report.
 #
-# Run with CrewAI:  crewai run research_crew.py
-# Validate with OSOP: osop validate crewai-research-pipeline.osop.yaml
+# Validate: osop validate --schema core crewai-research-pipeline.osop.yaml
 
 osop_version: "1.0"
 id: "crewai-research-pipeline"
 name: "Research Pipeline Crew"
 description: "Three-agent crew that researches a topic, analyzes findings, and writes a report."
-version: "1.0.0"
-tags: [crewai, multi-agent, research, llm]
+tags: [crewai, multi-agent, research]
 
 nodes:
   - id: "user_topic"
     type: "human"
     name: "Provide Research Topic"
-    description: "User supplies a topic and desired depth (overview / deep-dive)."
+    description: "User supplies a topic and desired depth."
 
   - id: "researcher"
     type: "agent"
     subtype: "llm"
     name: "Researcher Agent"
-    description: "Searches the web, reads papers, and collects raw source material."
-    config:
-      role: "Senior Research Analyst"
-      tools: [web_search, arxiv_search, url_reader]
-      max_iterations: 5
+    description: "Searches the web and collects raw source material."
+    runtime:
+      provider: "openai"
+      model: "gpt-4o"
+      system_prompt: "You are a Senior Research Analyst. Search thoroughly and collect diverse sources."
+      tools: ["web_search", "arxiv_search", "url_reader"]
 
   - id: "analyst"
     type: "agent"
     subtype: "llm"
     name: "Analyst Agent"
-    description: "Synthesizes raw sources into structured insights and key findings."
-    config:
-      role: "Data Analyst"
-      tools: [text_summarizer]
-      max_iterations: 3
+    description: "Synthesizes raw sources into structured insights."
+    runtime:
+      provider: "openai"
+      model: "gpt-4o"
+      system_prompt: "Analyze the research and extract key findings, trends, and contradictions."
 
   - id: "writer"
     type: "agent"
     subtype: "llm"
     name: "Writer Agent"
     description: "Produces a polished markdown report with citations."
-    config:
-      role: "Technical Writer"
-      tools: [markdown_formatter]
-      max_iterations: 3
+    runtime:
+      provider: "openai"
+      model: "gpt-4o"
+      system_prompt: "Write a clear, well-structured report with inline citations."
 
   - id: "human_review"
     type: "human"
@@ -59,18 +57,14 @@ nodes:
 edges:
   - from: "user_topic"
     to: "researcher"
-    mode: "sequential"
   - from: "researcher"
     to: "analyst"
-    mode: "sequential"
   - from: "analyst"
     to: "writer"
-    mode: "sequential"
   - from: "writer"
     to: "human_review"
-    mode: "sequential"
   - from: "human_review"
     to: "writer"
     mode: "conditional"
-    when: "revision_requested"
+    when: "outputs.human_review.revision_requested == true"
     label: "Revisions needed"

@@ -1,6 +1,6 @@
 # End-to-End Testing with Cypress
 # Setup environment, run tests, collect artifacts, report, notify
-osop_version: "2.0"
+osop_version: "1.0"
 id: e2e-cypress
 name: Cypress E2E Test Pipeline
 

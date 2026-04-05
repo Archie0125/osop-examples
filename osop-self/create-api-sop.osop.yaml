@@ -1,0 +1,63 @@
+osop_version: "1.0"
+id: "osop-create-api-sop"
+name: "Create an API SOP from API Documentation"
+description: "Convert existing API docs into visual SOP workflows. Write markdown SOPs, convert to .osop, validate, publish to SOP Doc."
+tags: [osop, sop-doc, api, convert, meta]
+
+nodes:
+  - id: "gather_api_docs"
+    type: "human"
+    name: "Gather API Documentation"
+    description: "Collect the API endpoints, methods, required fields, expected responses. Source: Swagger/OpenAPI spec, internal wiki, or developer knowledge."
+
+  - id: "write_markdown_sop"
+    type: "human"
+    name: "Write Markdown SOPs"
+    description: "For each operation (e.g. 'Create a Payment', 'Submit an Order'), write the step-by-step API call sequence. Include: step number, HTTP method, endpoint, body fields, expected response."
+
+  - id: "convert_to_osop"
+    type: "cli"
+    name: "Convert to .osop Files"
+    description: "Run the conversion script. Each SOP becomes a .osop.yaml file with api nodes, runtime config (method, url, headers, body), and sequential/conditional edges."
+    runtime:
+      command: "python scripts/convert-sops.py API_SOP.md --output osop-examples/my-product/"
+
+  - id: "validate_all"
+    type: "cli"
+    name: "osop validate (all files)"
+    description: "Validate every generated .osop file against the JSON Schema. Fix any errors."
+    runtime:
+      command: "osop validate osop-examples/my-product/*.osop.yaml"
+
+  - id: "generate_website_data"
+    type: "cli"
+    name: "Generate Website Data"
+    description: "Run the data generation script. Produces TypeScript data file for the website gallery."
+    runtime:
+      command: "python scripts/generate-workflow-data.py"
+
+  - id: "browse_sop_doc"
+    type: "mcp"
+    name: "Browse in SOP Doc"
+    description: "Open osop.ai/sop-doc. Filter by 'API SOP'. See every SOP with Visual/YAML tabs. Share with team."
+
+edges:
+  - from: "gather_api_docs"
+    to: "write_markdown_sop"
+    mode: "sequential"
+  - from: "write_markdown_sop"
+    to: "convert_to_osop"
+    mode: "sequential"
+  - from: "convert_to_osop"
+    to: "validate_all"
+    mode: "sequential"
+  - from: "validate_all"
+    to: "convert_to_osop"
+    mode: "fallback"
+    label: "Fix validation errors"
+  - from: "validate_all"
+    to: "generate_website_data"
+    mode: "sequential"
+  - from: "generate_website_data"
+    to: "browse_sop_doc"
+    mode: "sequential"

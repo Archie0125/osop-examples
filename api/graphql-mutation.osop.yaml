@@ -1,6 +1,6 @@
 # GraphQL Mutation Workflow
 # Query users, filter inactive accounts, delete via mutation, audit, and notify.
-osop_version: "2.0"
+osop_version: "1.0"
 id: graphql-mutation
 name: GraphQL Inactive User Cleanup
 

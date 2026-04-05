@@ -1,0 +1,39 @@
+osop_version: "1.0"
+id: "api-health-check"
+name: "API Health Check with AI Analysis"
+description: "Check API endpoints, AI analyzes failures, alerts on issues."
+tags: [ai-agent, monitoring, api]
+
+nodes:
+  - id: "check-endpoints"
+    type: "cli"
+    name: "Check API Endpoints"
+    runtime:
+      command: "curl -sf https://api.example.com/health"
+    timeout_sec: 30
+
+  - id: "analyze-failure"
+    type: "agent"
+    subtype: "llm"
+    name: "AI Analyzes Failure"
+    runtime:
+      provider: "anthropic"
+      model: "claude-sonnet-4-20250514"
+      system_prompt: "Analyze the API failure and suggest remediation steps."
+
+  - id: "alert"
+    type: "api"
+    name: "Send Alert"
+    runtime:
+      method: "POST"
+      url: "https://hooks.slack.com/services/..."
+      headers:
+        Content-Type: "application/json"
+
+edges:
+  - from: "check-endpoints"
+    to: "analyze-failure"
+    mode: "fallback"
+    label: "Health check failed"
+  - from: "analyze-failure"
+    to: "alert"

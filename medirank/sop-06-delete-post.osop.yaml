@@ -1,0 +1,23 @@
+# 原始：SOP-06: 刪除文章
+osop_version: '1.0'
+id: sop-06-delete-post
+name: 'SOP-06: Delete a Post'
+description: Delete a forum post by ID.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- posts
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: DELETE /posts/{post_id}
+  description: Permanently delete a forum post by ID.
+  runtime:
+    method: DELETE
+    url: https://medi-rank.com/api/v1
+    endpoint: /posts/{post_id}
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}

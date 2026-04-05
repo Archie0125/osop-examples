@@ -1,0 +1,65 @@
+# 原始：SOP-12: 發表療程評價 + 上傳前後對比照
+osop_version: '1.0'
+id: sop-12-create-treatment-review
+name: 'SOP-12: Submit Treatment Review with Before/After Photos'
+description: Write a multi-dimensional treatment review and upload before/after comparison photos.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- treatment-reviews
+- before-after
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: POST /treatment-reviews
+  description: Create a multi-dimensional treatment review with overall, effect, service, environment, and value ratings.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /treatment-reviews
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    body:
+      clinic_id: 1
+      treatment_type: Hyaluronic acid filler
+      treatment_area: Nasolabial folds
+      rating_overall: 5
+      rating_effect: 5
+      rating_service: 4
+      rating_environment: 5
+      rating_value: 4
+      content: Very natural results...
+      price_paid: 15000
+      treatment_date: '2026-03-15'
+      recovery_days: 3
+      would_recommend: true
+      doctor_id: 3
+      treatment_id: 2
+- id: step_2
+  type: api
+  subtype: rest
+  name: POST /treatment-reviews/{review_id}/photos
+  description: Upload before and after comparison photos. Can repeat for multiple photo sets.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /treatment-reviews/{review_id}/photos
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    content_type: multipart/form-data
+    body:
+      before_photo: (file)
+      after_photo: (file)
+      description: Day 7 post-treatment
+      days_after: 7
+edges:
+- from: step_1
+  to: step_2
+  mode: sequential
+- from: step_2
+  to: step_2
+  mode: loop
+  when: more_photo_sets_to_upload

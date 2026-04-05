@@ -1,6 +1,6 @@
 # OpenAPI to OSOP Conversion Workflow
 # Fetch an OpenAPI spec, parse it, generate an OSOP workflow, validate, and save.
-osop_version: "2.0"
+osop_version: "1.0"
 id: openapi-to-osop
 name: OpenAPI Spec to OSOP Workflow Converter
 

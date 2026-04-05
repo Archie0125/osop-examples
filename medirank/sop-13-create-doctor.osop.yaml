@@ -1,0 +1,37 @@
+# 原始：SOP-13: 建立醫師
+osop_version: '1.0'
+id: sop-13-create-doctor
+name: 'SOP-13: Create a Doctor Profile'
+description: Register a new doctor with specialties, credentials, and avatar.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- doctors
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: POST /doctors
+  description: Register a new doctor with name, clinic, title, education, bio, specialties, license, and avatar.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /doctors
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    content_type: multipart/form-data
+    body:
+      name: Dr. Lin
+      clinic_id: 1
+      title: Attending Physician
+      education: NTU School of Medicine
+      bio: 10 years of aesthetic medicine experience
+      specialties[]:
+      - Hyaluronic acid
+      - Botox
+      license_number: A012345
+      years_experience: 10
+      is_active: true
+      avatar: (file)

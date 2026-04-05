@@ -1,6 +1,6 @@
 # Kubernetes Progressive Rollout
 # Apply manifests, progressive canary rollout with automated health checks
-osop_version: "2.0"
+osop_version: "1.0"
 id: k8s-rollout
 name: Kubernetes Progressive Rollout
 

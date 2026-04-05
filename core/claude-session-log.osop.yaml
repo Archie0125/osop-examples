@@ -1,0 +1,57 @@
+osop_version: "1.0"
+id: "claude-session-log"
+name: "Claude Code Session Logging"
+description: "Standard workflow for logging what Claude Code did during a coding session."
+tags: [ai-agent, session-log, claude-code]
+
+nodes:
+  - id: "user-request"
+    type: "human"
+    subtype: "input"
+    name: "User Describes Task"
+    description: "User gives Claude Code an instruction."
+
+  - id: "explore"
+    type: "agent"
+    subtype: "llm"
+    name: "Explore Codebase"
+    description: "Read files, search code, understand the problem."
+    runtime:
+      provider: "anthropic"
+      model: "claude-opus-4-6"
+      tools: ["Read", "Grep", "Glob"]
+
+  - id: "implement"
+    type: "agent"
+    subtype: "llm"
+    name: "Implement Changes"
+    description: "Edit files, write code, run commands."
+    runtime:
+      provider: "anthropic"
+      model: "claude-opus-4-6"
+      tools: ["Edit", "Write", "Bash"]
+
+  - id: "verify"
+    type: "cli"
+    name: "Run Tests"
+    runtime:
+      command: "npm test"
+
+  - id: "user-review"
+    type: "human"
+    subtype: "review"
+    name: "User Reviews Changes"
+
+edges:
+  - from: "user-request"
+    to: "explore"
+  - from: "explore"
+    to: "implement"
+  - from: "implement"
+    to: "verify"
+  - from: "verify"
+    to: "user-review"
+  - from: "verify"
+    to: "implement"
+    mode: "fallback"
+    label: "Tests failed — fix and retry"

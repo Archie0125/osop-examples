@@ -1,6 +1,6 @@
 # Change Data Capture Streaming Pipeline
 # Capture database changes, filter, transform, apply to downstream systems, verify consistency
-osop_version: "2.0"
+osop_version: "1.0"
 id: cdc-streaming
 name: CDC Streaming Pipeline
 

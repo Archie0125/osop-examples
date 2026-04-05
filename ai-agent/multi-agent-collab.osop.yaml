@@ -1,6 +1,6 @@
 # Multi-Agent Collaboration Workflow
 # Planner breaks down tasks, executor implements, validator checks, human reviews.
-osop_version: "2.0"
+osop_version: "1.0"
 id: multi-agent-collab
 name: Multi-Agent Collaboration Pipeline
 

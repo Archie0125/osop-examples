@@ -1,7 +1,7 @@
 # Windows Developer Environment Setup
 # Automated provisioning of a Windows dev machine using PowerShell and Chocolatey
 
-osop_version: "2.0"
+osop_version: "1.0"
 id: windows-dev-setup
 name: Windows Developer Environment Setup
 

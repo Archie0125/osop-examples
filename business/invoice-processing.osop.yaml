@@ -1,6 +1,6 @@
 # Invoice Processing Workflow
 # Receive invoices, extract data via OCR, match to POs, route for approval, process payment
-osop_version: "2.0"
+osop_version: "1.0"
 id: invoice-processing
 name: Invoice Processing Workflow
 

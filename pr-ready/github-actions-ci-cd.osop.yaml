@@ -1,59 +1,52 @@
-# GitHub Actions CI/CD — OSOP Portable Workflow
+# GitHub Actions CI/CD — OSOP Workflow
 #
-# Full CI/CD pipeline: lint and type-check, run unit and integration tests
-# in parallel, build a Docker image, deploy to staging, wait for manual
-# approval, then promote to production.
+# Full pipeline: lint, parallel tests, Docker build, staging deploy,
+# manual approval, production deploy.
 #
-# Use alongside .github/workflows/ or validate: osop validate github-actions-ci-cd.osop.yaml
+# Validate: osop validate --schema core github-actions-ci-cd.osop.yaml
 
 osop_version: "1.0"
 id: "github-actions-ci-cd"
 name: "CI/CD Pipeline"
 description: "Lint → parallel tests → Docker build → staging → approval → production."
-version: "1.0.0"
 tags: [github-actions, cicd, docker, deployment]
 
 nodes:
   - id: "lint"
-    type: "cicd"
+    type: "cli"
     subtype: "test"
     name: "Lint & Type Check"
-    description: "Run ESLint and TypeScript compiler in strict mode."
-    config:
-      commands: ["npx eslint .", "npx tsc --noEmit"]
+    runtime:
+      command: "npx eslint . && npx tsc --noEmit"
 
   - id: "unit_tests"
-    type: "cicd"
+    type: "cli"
     subtype: "test"
     name: "Unit Tests"
-    description: "Run Jest unit tests with coverage threshold."
-    config:
+    runtime:
       command: "npx jest --coverage --ci"
-      coverage_threshold: 80
 
   - id: "integration_tests"
-    type: "cicd"
+    type: "cli"
     subtype: "test"
     name: "Integration Tests"
-    description: "Run Playwright integration tests against test database."
-    config:
+    runtime:
       command: "npx playwright test"
 
   - id: "build_docker"
-    type: "docker"
+    type: "cli"
+    subtype: "script"
     name: "Build Docker Image"
     description: "Build and push multi-arch image to GHCR."
-    config:
-      registry: "ghcr.io"
-      platforms: ["linux/amd64", "linux/arm64"]
+    runtime:
+      command: "docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/org/app:latest --push ."
 
   - id: "deploy_staging"
-    type: "infra"
+    type: "cli"
+    subtype: "script"
     name: "Deploy to Staging"
-    description: "Deploy the new image to the staging environment."
-    config:
-      environment: "staging"
-      strategy: "rolling"
+    runtime:
+      command: "kubectl apply -f k8s/staging/"
 
   - id: "approval_gate"
     type: "human"
@@ -62,13 +55,11 @@ nodes:
     description: "Team lead reviews staging and approves production deploy."
 
   - id: "deploy_production"
-    type: "infra"
+    type: "cli"
+    subtype: "script"
     name: "Deploy to Production"
-    description: "Blue-green deploy to production with automatic rollback."
-    config:
-      environment: "production"
-      strategy: "blue-green"
-      rollback_on_failure: true
+    runtime:
+      command: "kubectl apply -f k8s/production/"
 
 edges:
   - from: "lint"
@@ -79,16 +70,11 @@ edges:
     mode: "parallel"
   - from: "unit_tests"
     to: "build_docker"
-    mode: "sequential"
   - from: "integration_tests"
     to: "build_docker"
-    mode: "sequential"
   - from: "build_docker"
     to: "deploy_staging"
-    mode: "sequential"
   - from: "deploy_staging"
     to: "approval_gate"
-    mode: "sequential"
   - from: "approval_gate"
     to: "deploy_production"
-    mode: "sequential"

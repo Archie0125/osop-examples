@@ -1,0 +1,49 @@
+# 原始：SOP-15: 發表醫師專欄文章
+osop_version: '1.0'
+id: sop-15-publish-doctor-article
+name: 'SOP-15: Publish a Doctor Column Article'
+description: Create a professional article authored by a doctor, with optional deferred publishing.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- articles
+- doctors
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: POST /articles
+  description: Create a professional column article authored by a doctor.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /articles
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    content_type: multipart/form-data
+    body:
+      doctor_id: 3
+      title: What to Know About Hyaluronic Acid Fillers
+      body: <p>Full HTML article content...</p>
+      excerpt: An introduction to HA filler procedures and aftercare
+      treatment_id: 2
+      status: published
+      cover_image: (file)
+- id: step_2
+  type: api
+  subtype: rest
+  name: POST /articles/{article_id}/publish
+  description: If article was created as draft, admin can publish it later.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /articles/{article_id}/publish
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+edges:
+- from: step_1
+  to: step_2
+  mode: conditional
+  when: status_is_draft

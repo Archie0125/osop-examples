@@ -1,7 +1,7 @@
 # Android Build & Deploy Pipeline
 # From source checkout to Play Console distribution
 
-osop_version: "2.0"
+osop_version: "1.0"
 id: android-build-deploy
 name: Android Build & Deploy Pipeline
 

@@ -1,6 +1,6 @@
 # Test-Driven Development Workflow
 # Red-Green-Refactor cycle: write test, implement, run, refactor, commit
-osop_version: "2.0"
+osop_version: "1.0"
 id: tdd-workflow
 name: TDD Red-Green-Refactor Cycle
 

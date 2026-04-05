@@ -1,0 +1,45 @@
+# 原始：SOP-04: 修改文章內容
+osop_version: '1.0'
+id: sop-04-update-post
+name: 'SOP-04: Update Post Content'
+description: Update the title, content, tags, or cover image of an existing post.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- posts
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: GET /posts/{post_id}
+  description: Fetch current post content to confirm it exists before updating.
+  runtime:
+    method: GET
+    url: https://medi-rank.com/api/v1
+    endpoint: /posts/{post_id}
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+- id: step_2
+  type: api
+  subtype: rest
+  name: PUT /posts/{post_id}
+  description: Update post title, content, tags, or cover image. Only changed fields required.
+  runtime:
+    method: PUT
+    url: https://medi-rank.com/api/v1
+    endpoint: /posts/{post_id}
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    content_type: multipart/form-data
+    body:
+      title: New Title
+      content: <p>New content</p>
+      tags[]:
+      - new-tag
+      image: (file)
+edges:
+- from: step_1
+  to: step_2
+  mode: sequential

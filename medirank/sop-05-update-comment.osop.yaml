@@ -1,0 +1,44 @@
+# 原始：SOP-05: 修改留言內容
+osop_version: '1.0'
+id: sop-05-update-comment
+name: 'SOP-05: Update Comment Content'
+description: Update an existing comment's text and optionally add images.
+version: 1.0.0
+tags:
+- api
+- sop
+- medirank
+- comments
+nodes:
+- id: step_1
+  type: api
+  subtype: rest
+  name: PUT /comments/{comment_id}
+  description: Update the text content of an existing comment.
+  runtime:
+    method: PUT
+    url: https://medi-rank.com/api/v1
+    endpoint: /comments/{comment_id}
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    body:
+      content: Updated comment text
+- id: step_2
+  type: api
+  subtype: rest
+  name: POST /comments/{comment_id}/images
+  description: Optionally upload extra images to the comment.
+  runtime:
+    method: POST
+    url: https://medi-rank.com/api/v1
+    endpoint: /comments/{comment_id}/images
+    headers:
+      Authorization: Bearer ${secrets.TOKEN}
+    content_type: multipart/form-data
+    body:
+      images[]: (files)
+edges:
+- from: step_1
+  to: step_2
+  mode: conditional
+  when: additional_images_needed

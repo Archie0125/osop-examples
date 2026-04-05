@@ -1,6 +1,6 @@
 # A/B Testing Pipeline
 # Create experiment, split traffic, collect metrics, statistical analysis, decision
-osop_version: "2.0"
+osop_version: "1.0"
 id: ab-testing
 name: A/B Testing Pipeline
 

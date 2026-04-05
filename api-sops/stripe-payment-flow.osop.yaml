@@ -1,0 +1,99 @@
+osop_version: "1.0"
+id: "sop-stripe-payment"
+name: "Stripe Payment Flow"
+description: "Complete payment sequence: create customer, payment intent, confirm, check status, send receipt."
+tags: [api, stripe, payment, sop]
+
+nodes:
+  - id: "create_customer"
+    type: "api"
+    subtype: "rest"
+    name: "POST /v1/customers"
+    description: "Create a Stripe customer with email and metadata"
+    runtime:
+      method: "POST"
+      url: "https://api.stripe.com"
+      endpoint: "/v1/customers"
+      headers:
+        Authorization: "Bearer ${secrets.STRIPE_SECRET_KEY}"
+        Content-Type: "application/x-www-form-urlencoded"
+      body:
+        email: "user@example.com"
+        name: "John Doe"
+    outputs:
+      - customer_id: "data.id"
+
+  - id: "create_intent"
+    type: "api"
+    subtype: "rest"
+    name: "POST /v1/payment_intents"
+    description: "Create a payment intent for the customer"
+    runtime:
+      method: "POST"
+      url: "https://api.stripe.com"
+      endpoint: "/v1/payment_intents"
+      headers:
+        Authorization: "Bearer ${secrets.STRIPE_SECRET_KEY}"
+      body:
+        amount: 2000
+        currency: "usd"
+        customer: "${create_customer.customer_id}"
+    outputs:
+      - intent_id: "data.id"
+      - client_secret: "data.client_secret"
+
+  - id: "confirm_payment"
+    type: "api"
+    subtype: "rest"
+    name: "POST /v1/payment_intents/{id}/confirm"
+    description: "Confirm the payment intent with a payment method"
+    runtime:
+      method: "POST"
+      url: "https://api.stripe.com"
+      endpoint: "/v1/payment_intents/${create_intent.intent_id}/confirm"
+      headers:
+        Authorization: "Bearer ${secrets.STRIPE_SECRET_KEY}"
+      body:
+        payment_method: "pm_card_visa"
+
+  - id: "check_status"
+    type: "api"
+    subtype: "rest"
+    name: "GET /v1/payment_intents/{id}"
+    description: "Verify the payment succeeded"
+    runtime:
+      method: "GET"
+      url: "https://api.stripe.com"
+      endpoint: "/v1/payment_intents/${create_intent.intent_id}"
+      headers:
+        Authorization: "Bearer ${secrets.STRIPE_SECRET_KEY}"
+    outputs:
+      - status: "data.status"
+
+  - id: "send_receipt"
+    type: "agent"
+    subtype: "llm"
+    name: "Generate Receipt Email"
+    description: "AI generates a personalized receipt email based on payment details"
+    runtime:
+      provider: "anthropic"
+      model: "claude-sonnet-4-6"
+      system_prompt: "Generate a payment receipt email. Be concise and professional."
+
+edges:
+  - from: "create_customer"
+    to: "create_intent"
+    mode: "sequential"
+  - from: "create_intent"
+    to: "confirm_payment"
+    mode: "sequential"
+  - from: "confirm_payment"
+    to: "check_status"
+    mode: "sequential"
+  - from: "check_status"
+    to: "send_receipt"
+    mode: "conditional"
+    condition: "check_status.status == 'succeeded'"
+  - from: "confirm_payment"
+    to: "create_intent"
+    mode: "fallback"

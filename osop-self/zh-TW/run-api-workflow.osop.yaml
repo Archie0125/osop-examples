@@ -1,0 +1,71 @@
+osop_version: "1.0"
+id: "osop-run-api-workflow"
+name: "使用 osop run 執行 API 工作流程"
+description: "端到端執行 API SOP 工作流程。真實 HTTP 請求包含 headers、body、auth。成本控制。安全閘門。自動產生執行日誌。"
+tags: [osop, the-loop, api, execute, meta]
+
+nodes:
+  - id: "select_workflow"
+    type: "human"
+    name: "選擇 .osop 工作流程"
+    description: "選擇要執行的 API SOP。範例：stripe-payment-flow.osop.yaml"
+
+  - id: "preflight_check"
+    type: "agent"
+    subtype: "llm"
+    name: "執行前風險評估"
+    description: "AI 掃描工作流程的安全風險：破壞性命令、缺少核准閘門、過寬權限、硬編碼密鑰。回傳風險分數 0-100。"
+
+  - id: "human_approve"
+    type: "human"
+    subtype: "review"
+    name: "核准執行"
+    description: "審查風險評估。核准或拒絕。CLI 節點需要 --allow-exec 旗標。"
+    security:
+      approval_gate: true
+      risk_level: "medium"
+
+  - id: "execute"
+    type: "cli"
+    name: "osop run"
+    description: "執行工作流程。API 節點發送包含 headers、body、query params 的 HTTP 請求。Agent 節點呼叫 LLM。結果透過 WorkflowContext 在節點間傳遞。"
+    runtime:
+      command: "osop run workflow.osop.yaml --allow-exec --max-cost 1.00 --log"
+
+  - id: "log_generated"
+    type: "system"
+    name: "產生 .osoplog"
+    description: "執行記錄：每節點持續時間、成本、狀態、HTTP 狀態碼、回應預覽、AI Token 用量、人工決策。"
+
+  - id: "view_report"
+    type: "cli"
+    name: "osop report"
+    description: "從執行日誌產生獨立 HTML 報告。在任何瀏覽器中開啟。"
+    runtime:
+      command: "osop report workflow.osop.yaml execution.osoplog.yaml -o report.html"
+
+edges:
+  - from: "select_workflow"
+    to: "preflight_check"
+    mode: "sequential"
+  - from: "preflight_check"
+    to: "human_approve"
+    mode: "conditional"
+    condition: "preflight_check.risk_score > 30"
+  - from: "preflight_check"
+    to: "execute"
+    mode: "conditional"
+    condition: "preflight_check.risk_score <= 30"
+  - from: "human_approve"
+    to: "execute"
+    mode: "sequential"
+  - from: "execute"
+    to: "log_generated"
+    mode: "sequential"
+  - from: "log_generated"
+    to: "view_report"
+    mode: "sequential"
+  - from: "execute"
+    to: "select_workflow"
+    mode: "fallback"
+    label: "執行失敗，重試"

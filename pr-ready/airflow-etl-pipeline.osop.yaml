@@ -1,90 +1,85 @@
-# Airflow ETL Pipeline — OSOP Portable Workflow
+# Airflow ETL Pipeline — OSOP Workflow
 #
-# Classic extract-transform-load: pulls raw data from S3, validates the
-# schema, transforms with dbt, loads into Snowflake, refreshes a Metabase
-# dashboard, and sends a Slack alert on any failure.
+# Extract-transform-load: pull data from S3, validate schema, transform
+# with dbt, load into warehouse, refresh dashboard, alert on failure.
 #
-# Run with Airflow or validate: osop validate airflow-etl-pipeline.osop.yaml
+# Validate: osop validate --schema core airflow-etl-pipeline.osop.yaml
 
 osop_version: "1.0"
 id: "airflow-etl-pipeline"
 name: "Daily ETL Pipeline"
-description: "S3 → validate → transform → Snowflake → dashboard refresh with failure alerts."
-version: "1.0.0"
-tags: [airflow, etl, data-engineering, snowflake, dbt]
+description: "S3 extract → validate → dbt transform → warehouse load → dashboard refresh."
+tags: [airflow, etl, data-engineering]
 
 nodes:
   - id: "extract_s3"
-    type: "data"
+    type: "cli"
+    subtype: "script"
     name: "Extract from S3"
-    description: "Download daily CSV exports from s3://data-lake/raw/."
-    config:
-      source: "s3://data-lake/raw/{{ds}}/"
-      format: csv
+    description: "Download daily CSV exports from S3 data lake."
+    runtime:
+      command: "aws s3 sync s3://data-lake/raw/$(date +%Y-%m-%d) /tmp/raw/"
 
   - id: "validate_schema"
-    type: "cicd"
+    type: "cli"
     subtype: "test"
     name: "Validate Schema"
-    description: "Check column types, nullability, and row count against expectations."
-    config:
-      tool: "great_expectations"
-      suite: "raw_data_suite"
+    description: "Check column types, nullability, and row count."
+    runtime:
+      command: "great_expectations checkpoint run raw_data_suite"
 
   - id: "transform_dbt"
     type: "cli"
     subtype: "script"
     name: "Transform with dbt"
     description: "Run dbt models to clean, deduplicate, and join tables."
-    config:
+    runtime:
       command: "dbt run --select tag:daily"
 
   - id: "load_warehouse"
-    type: "db"
-    name: "Load to Snowflake"
-    description: "Insert transformed data into Snowflake production tables."
-    config:
-      target: "snowflake://analytics/prod"
+    type: "cli"
+    subtype: "script"
+    name: "Load to Warehouse"
+    description: "Insert transformed data into production tables."
+    runtime:
+      command: "python scripts/load_to_snowflake.py --env prod"
 
   - id: "refresh_dashboard"
     type: "api"
     subtype: "rest"
-    name: "Refresh Metabase Dashboard"
-    description: "Trigger cache invalidation on the executive KPI dashboard."
-    config:
-      url: "https://metabase.internal/api/card/{{card_id}}/refresh"
+    name: "Refresh Dashboard"
+    description: "Trigger cache invalidation on the KPI dashboard."
+    runtime:
+      method: "POST"
+      url: "https://metabase.internal/api/card/refresh"
 
   - id: "notify_failure"
     type: "api"
     subtype: "rest"
     name: "Slack Failure Alert"
-    description: "Post to #data-alerts with error details and run link."
-    config:
-      channel: "#data-alerts"
+    description: "Post to #data-alerts with error details."
+    runtime:
+      method: "POST"
+      url: "https://hooks.slack.com/services/..."
 
 edges:
   - from: "extract_s3"
     to: "validate_schema"
-    mode: "sequential"
   - from: "validate_schema"
     to: "transform_dbt"
-    mode: "sequential"
   - from: "transform_dbt"
     to: "load_warehouse"
-    mode: "sequential"
   - from: "load_warehouse"
     to: "refresh_dashboard"
-    mode: "sequential"
   - from: "extract_s3"
     to: "notify_failure"
-    mode: "error"
-    label: "Any step fails"
+    mode: "fallback"
+    label: "Extract failed"
   - from: "validate_schema"
     to: "notify_failure"
-    mode: "error"
+    mode: "fallback"
+    label: "Validation failed"
   - from: "transform_dbt"
     to: "notify_failure"
-    mode: "error"
-  - from: "load_warehouse"
-    to: "notify_failure"
-    mode: "error"
+    mode: "fallback"
+    label: "Transform failed"

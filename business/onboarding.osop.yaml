@@ -1,7 +1,7 @@
 # Employee Onboarding Workflow
 # Parallel provisioning with HR, IT, and people management steps
 
-osop_version: "2.0"
+osop_version: "1.0"
 id: employee-onboarding
 name: Employee Onboarding Workflow
 

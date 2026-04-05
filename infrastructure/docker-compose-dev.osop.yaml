@@ -1,6 +1,6 @@
 # Docker Compose Dev Environment Setup
 # Pull images, start services, health check, seed data
-osop_version: "2.0"
+osop_version: "1.0"
 id: docker-compose-dev
 name: Docker Compose Development Environment Setup
 

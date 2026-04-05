@@ -1,0 +1,84 @@
+# Conditional Code Review — Demo workflow with branching
+# Shows: conditional edges, fallback on failure, and data flow
+osop_version: "1.0"
+id: conditional-review
+name: Conditional Code Review Pipeline
+description: "AI reviews code, routes to fast-track or deep-review based on risk score, with fallback on failure."
+tags: [demo, conditional, fallback, agent]
+
+nodes:
+  - id: analyze
+    type: agent
+    name: "Risk Analysis"
+    purpose: "Analyze the code change and output a risk score from 0 to 10. Just output a single number."
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "You analyze code changes for risk. Output ONLY a number from 0-10. 0=trivial, 10=extremely risky."
+      max_tokens: 10
+    outputs: [risk_score]
+
+  - id: fast_track
+    type: agent
+    name: "Fast-Track Approval"
+    purpose: "Auto-approve low-risk changes with a brief comment."
+    inputs: [risk_score]
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "This is a low-risk change. Write a brief 1-sentence approval comment."
+      max_tokens: 100
+    outputs: [approval]
+
+  - id: deep_review
+    type: agent
+    name: "Deep Review"
+    purpose: "Perform thorough code review for high-risk changes."
+    inputs: [risk_score]
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "This is a high-risk change. Identify the top 3 concerns in bullet points."
+      max_tokens: 300
+    outputs: [review_findings]
+
+  - id: human_review
+    type: human
+    name: "Human Decision"
+    purpose: "Human reviews the AI findings and makes final decision."
+    inputs: [review_findings]
+
+  - id: error_handler
+    type: agent
+    name: "Error Recovery"
+    purpose: "Handle any failures in the review pipeline."
+    runtime:
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      system_prompt: "The review pipeline encountered an error. Suggest next steps."
+      max_tokens: 100
+
+edges:
+  # Risk analysis routes to different paths
+  - from: analyze
+    to: fast_track
+    mode: conditional
+    condition: "risk_score < 5"
+    label: "Low risk → fast track"
+
+  - from: analyze
+    to: deep_review
+    mode: conditional
+    condition: "risk_score >= 5"
+    label: "High risk → deep review"
+
+  # Deep review needs human sign-off
+  - from: deep_review
+    to: human_review
+    mode: sequential
+
+  # Fallback: if analysis fails, route to error handler
+  - from: analyze
+    to: error_handler
+    mode: fallback
+    label: "Analysis failed"

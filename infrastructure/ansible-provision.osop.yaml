@@ -1,6 +1,6 @@
 # Ansible Server Provisioning Workflow
 # Inventory check, run playbook, verify, configure monitoring
-osop_version: "2.0"
+osop_version: "1.0"
 id: ansible-provision
 name: Ansible Server Provisioning and Configuration
 

@@ -1,0 +1,41 @@
+osop_version: "1.0"
+id: "osop-diff-two-runs"
+name: "使用 osop diff 比較兩次執行記錄"
+description: "將兩個 .osoplog 檔案餵給 osop diff。查看每步持續時間、成本和狀態變化。立即了解哪些改善了、哪些出了問題。"
+tags: [osop, the-loop, diff, compare, meta]
+
+nodes:
+  - id: "collect_logs"
+    type: "human"
+    name: "收集兩個 .osoplog 檔案"
+    description: "選擇兩個要比較的執行記錄。範例：monday.osoplog.yaml vs tuesday.osoplog.yaml。相同工作流程，不同執行。"
+
+  - id: "run_diff"
+    type: "cli"
+    name: "osop diff"
+    description: "比較兩個日誌。輸出：每節點持續時間差異、成本差異、狀態變更、新增/移除的節點。"
+    runtime:
+      command: "osop diff run-v1.osoplog.yaml run-v2.osoplog.yaml"
+
+  - id: "analyze_results"
+    type: "agent"
+    subtype: "llm"
+    name: "AI 分析差異"
+    description: "AI 讀取 diff 輸出。識別：哪些步驟變快了、哪些變更貴了、哪些狀態改變了。建議最佳化方向。"
+
+  - id: "decide_action"
+    type: "human"
+    subtype: "review"
+    name: "決定下一步行動"
+    description: "根據 diff 結果：接受改善、調查退化，或觸發 osop synthesize 進行 AI 驅動的最佳化。"
+
+edges:
+  - from: "collect_logs"
+    to: "run_diff"
+    mode: "sequential"
+  - from: "run_diff"
+    to: "analyze_results"
+    mode: "sequential"
+  - from: "analyze_results"
+    to: "decide_action"
+    mode: "sequential"

@@ -1,6 +1,6 @@
 # ArgoCD GitOps Workflow
 # Git commit triggers ArgoCD sync, health check, rollback on failure
-osop_version: "2.0"
+osop_version: "1.0"
 id: argocd-gitops
 name: ArgoCD GitOps Sync and Rollback Workflow
 

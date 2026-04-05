@@ -1,6 +1,6 @@
 # Production RAG Pipeline
 # Embed documents, retrieve context, generate grounded answers, validate faithfulness
-osop_version: "2.0"
+osop_version: "1.0"
 id: ai-ml-rag-pipeline
 name: Production RAG Pipeline
 

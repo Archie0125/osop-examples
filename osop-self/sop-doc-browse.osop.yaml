@@ -1,0 +1,50 @@
+osop_version: "1.0"
+id: "osop-sop-doc-browse"
+name: "SOP Doc: Browse and Understand Any Workflow"
+description: "How SOP Doc works. Write .osop files, browse them visually, share with anyone. Non-engineers can read the Visual tab."
+tags: [osop, sop-doc, meta, browse]
+
+nodes:
+  - id: "write_osop"
+    type: "human"
+    name: "Write .osop File"
+    description: "Define a process as YAML. Each step is a node (api, agent, human, cli, cicd). Connections are edges (sequential, conditional, fallback, loop)."
+
+  - id: "validate"
+    type: "cli"
+    name: "osop validate"
+    description: "Check the .osop file against JSON Schema. Catches errors before anyone sees them."
+    runtime:
+      command: "osop validate workflow.osop.yaml"
+
+  - id: "visual_browse"
+    type: "mcp"
+    name: "Browse in SOP Doc"
+    description: "Open osop.ai/sop-doc. Each workflow shows two tabs: Visual (flow diagram with colored node dots) and .osop (full YAML). Search, filter by source."
+
+  - id: "open_editor"
+    type: "mcp"
+    name: "Open in Visual Editor"
+    description: "Click 'Open in Editor' to see the interactive node graph. Drag nodes. 5 view modes: graph, story, role, agent, code. Built-in risk analysis."
+
+  - id: "share"
+    type: "human"
+    name: "Share with Team"
+    description: "Copy YAML or send the editor link. PMs read the Visual tab. Engineers read the YAML. Everyone sees the same process."
+
+edges:
+  - from: "write_osop"
+    to: "validate"
+    mode: "sequential"
+  - from: "validate"
+    to: "visual_browse"
+    mode: "sequential"
+  - from: "visual_browse"
+    to: "open_editor"
+    mode: "sequential"
+  - from: "open_editor"
+    to: "share"
+    mode: "sequential"
+  - from: "validate"
+    to: "write_osop"
+    mode: "fallback"

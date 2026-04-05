@@ -1,6 +1,6 @@
 # GitHub Actions CI/CD Pipeline
 # Triggered on push to main: lint, test, build, deploy staging, smoke test, deploy prod
-osop_version: "2.0"
+osop_version: "1.0"
 id: github-actions-cicd
 name: GitHub Actions CI/CD Pipeline
 

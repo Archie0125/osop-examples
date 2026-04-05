@@ -1,6 +1,6 @@
 # Kubernetes Deployment Pipeline
 # Build image, push to registry, apply manifests, verify rollout
-osop_version: "2.0"
+osop_version: "1.0"
 id: kubernetes-deploy
 name: Kubernetes Build and Deploy Pipeline
 

@@ -37,7 +37,7 @@ nodes:
       command: "python scripts/generate-workflow-data.py"
 
   - id: "browse_sop_doc"
-    type: "mcp"
+    type: "agent"
     name: "Browse in SOP Doc"
     description: "Open osop.ai/sop-doc. Filter by 'API SOP'. See every SOP with Visual/YAML tabs. Share with team."
 

@@ -113,7 +113,7 @@ nodes:
     timeout_sec: 5
 
   - id: state_checkpoint
-    type: db
+    type: api
     purpose: Persist conversation state to LangGraph checkpoint store for resumability
     runtime:
       engine: redis

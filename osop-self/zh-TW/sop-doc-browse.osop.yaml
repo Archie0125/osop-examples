@@ -18,12 +18,12 @@ nodes:
       command: "osop validate workflow.osop.yaml"
 
   - id: "visual_browse"
-    type: "mcp"
+    type: "agent"
     name: "在 SOP Doc 中瀏覽"
     description: "開啟 osop.ai/sop-doc。每個工作流程顯示兩個分頁：Visual（帶有彩色節點圓點的流程圖）和 .osop（完整 YAML）。可搜尋，可依來源篩選。"
 
   - id: "open_editor"
-    type: "mcp"
+    type: "agent"
     name: "在視覺編輯器中開啟"
     description: "點擊「在編輯器中開啟」查看互動式節點圖。拖曳節點。5 種檢視模式：graph、story、role、agent、code。內建風險分析。"
 

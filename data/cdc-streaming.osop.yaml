@@ -71,7 +71,7 @@ nodes:
       computes derived fields, and validates against Avro schema registry.
 
   - id: apply_to_warehouse
-    type: db
+    type: api
     purpose: Apply transformed change events to analytics data warehouse
     runtime:
       engine: bigquery

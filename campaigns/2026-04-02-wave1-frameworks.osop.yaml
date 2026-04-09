@@ -19,42 +19,42 @@ nodes:
     description: "Created 10 .osop example files tailored to each framework's use case."
 
   - id: pr-dify
-    type: git
+    type: cli
     subtype: pr
     name: "PR: langgenius/dify #34449"
     description: "RAG chatbot workflow. CI passed (anti-slop + labeler). Waiting for maintainer review."
     purpose: "55k stars — Chinese-origin AI builder, largest target"
 
   - id: pr-metagpt
-    type: git
+    type: cli
     subtype: pr
     name: "PR: FoundationAgents/MetaGPT #1995"
     description: "Software team role orchestration. Unit tests passed, full tests queued."
     purpose: "45k stars — Role-based multi-agent"
 
   - id: pr-flowise
-    type: git
+    type: cli
     subtype: pr
     name: "PR: FlowiseAI/Flowise #6122"
     description: "RAG chatflow example. Gemini review: provider nesting + model version. FIXED both."
     purpose: "35k stars — Visual chatflow builder"
 
   - id: pr-autogen
-    type: git
+    type: cli
     subtype: pr
     name: "PR: ag2ai/ag2 #2540"
     description: "Multi-agent debate pattern. CLA check pending — needs manual signature."
     purpose: "35k stars — Microsoft's multi-agent framework"
 
   - id: pr-crewai
-    type: git
+    type: cli
     subtype: pr
     name: "PR: crewAIInc/crewAI-examples #361"
     description: "OSOP interop with converter docs. Snyk security passed. Waiting for review."
     purpose: "25k stars — Most YAML-aligned framework"
 
   - id: pr-semantic-kernel
-    type: git
+    type: cli
     subtype: pr
     name: "PR: microsoft/semantic-kernel #13727"
     description: >
@@ -64,42 +64,42 @@ nodes:
     purpose: "23k stars — Microsoft's AI orchestration SDK"
 
   - id: pr-swarm
-    type: git
+    type: cli
     subtype: pr
     name: "PR: openai/swarm #76"
     description: "Agent handoff pattern (triage → billing/technical/sales). No CI configured. Waiting."
     purpose: "18k stars — OpenAI's educational agent framework"
 
   - id: pr-haystack
-    type: git
+    type: cli
     subtype: pr
     name: "PR: deepset-ai/haystack #11024"
     description: "RAG pipeline with embedder/retriever/generator. CLA pending + Vercel deploy auth (their issue)."
     purpose: "18k stars — NLP pipeline framework"
 
   - id: pr-prefect
-    type: git
+    type: cli
     subtype: pr
     name: "PR: PrefectHQ/prefect #21395"
     description: "Data pipeline with retry and error edges. All 8 CI checks passed!"
     purpose: "17k stars — Data workflow orchestration"
 
   - id: pr-agno
-    type: git
+    type: cli
     subtype: pr
     name: "PR: agno-agi/agno #7290"
     description: "Research agent workflow. Bot required linked issue — created #7293 and linked."
     purpose: "15k stars — Agent workflow platform (formerly Phidata)"
 
   - id: pr-awesome-agents
-    type: git
+    type: cli
     subtype: pr
     name: "PR: e2b-dev/awesome-ai-agents #648"
     description: "Added OSOP to open-source projects section. No CI, waiting for review."
     purpose: "15k stars — Curated AI agents list"
 
   - id: pr-awesome-engines
-    type: git
+    type: cli
     subtype: pr
     name: "PR: meirwah/awesome-workflow-engines #201"
     description: "Added OSOP with stars badge. No CI, waiting for review."

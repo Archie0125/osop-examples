@@ -50,7 +50,7 @@ nodes:
       credentials: [APP_STORE_CONNECT_KEY]
 
   - id: monitor_status
-    type: system
+    type: api
     subtype: polling
     purpose: Poll App Store Connect for review status changes
     runtime:

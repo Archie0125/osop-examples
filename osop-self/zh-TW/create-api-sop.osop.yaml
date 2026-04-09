@@ -37,7 +37,7 @@ nodes:
       command: "python scripts/generate-workflow-data.py"
 
   - id: "browse_sop_doc"
-    type: "mcp"
+    type: "agent"
     name: "在 SOP Doc 中瀏覽"
     description: "開啟 osop.ai/sop-doc。依「API SOP」篩選。查看每個 SOP 的 Visual/YAML 分頁。與團隊分享。"
 

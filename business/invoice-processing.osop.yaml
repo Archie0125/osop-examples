@@ -50,7 +50,7 @@ nodes:
     timeout_sec: 30
 
   - id: match_purchase_order
-    type: db
+    type: api
     purpose: Match invoice line items to open purchase orders using fuzzy matching
     runtime:
       engine: postgresql
@@ -104,7 +104,7 @@ nodes:
     timeout_sec: 30
 
   - id: update_ledger
-    type: db
+    type: api
     purpose: Post accounting entries to general ledger and update AP aging
     runtime:
       engine: postgresql

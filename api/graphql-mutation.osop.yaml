@@ -52,7 +52,7 @@ nodes:
     explain: "Runs mutation { deleteUsers(ids: [...]) { count errors } }"
 
   - id: log_audit
-    type: db
+    type: api
     purpose: Record deletion event in the compliance audit log
     runtime:
       engine: postgres

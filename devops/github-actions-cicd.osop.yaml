@@ -6,7 +6,7 @@ name: GitHub Actions CI/CD Pipeline
 
 nodes:
   - id: push_trigger
-    type: cicd
+    type: cli
     purpose: Trigger pipeline on push to main branch
     subtype: github-actions
     runtime:
@@ -41,7 +41,7 @@ nodes:
     outputs: [build_artifact, build_version]
 
   - id: deploy_staging
-    type: cicd
+    type: cli
     purpose: Deploy build artifact to staging environment
     subtype: github-actions
     runtime:
@@ -80,7 +80,7 @@ nodes:
       and approve the production deployment.
 
   - id: deploy_prod
-    type: cicd
+    type: cli
     purpose: Deploy to production environment
     subtype: github-actions
     runtime:

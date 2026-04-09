@@ -6,7 +6,7 @@ name: ArgoCD GitOps Sync and Rollback Workflow
 
 nodes:
   - id: git_commit
-    type: git
+    type: cli
     purpose: Detect new commit pushed to the GitOps config repo
     runtime:
       action: webhook
@@ -15,7 +15,7 @@ nodes:
     outputs: [commit_sha, changed_files]
 
   - id: manifest_validate
-    type: system
+    type: api
     purpose: Validate Kubernetes manifests before sync
     runtime:
       action: validate
@@ -29,7 +29,7 @@ nodes:
       schema errors before ArgoCD attempts to sync them.
 
   - id: argocd_sync
-    type: infra
+    type: cli
     purpose: Trigger ArgoCD application sync
     runtime:
       tool: argocd
@@ -65,7 +65,7 @@ nodes:
     inputs: [health_status, commit_sha]
 
   - id: rollback
-    type: infra
+    type: cli
     purpose: Rollback to previous ArgoCD revision on failure
     runtime:
       tool: argocd

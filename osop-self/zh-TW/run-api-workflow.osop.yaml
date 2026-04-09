@@ -33,7 +33,7 @@ nodes:
       command: "osop run workflow.osop.yaml --allow-exec --max-cost 1.00 --log"
 
   - id: "log_generated"
-    type: "system"
+    type: "api"
     name: "產生 .osoplog"
     description: "執行記錄：每節點持續時間、成本、狀態、HTTP 狀態碼、回應預覽、AI Token 用量、人工決策。"
 

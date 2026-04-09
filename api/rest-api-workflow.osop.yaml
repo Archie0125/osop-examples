@@ -82,7 +82,7 @@ nodes:
       auth: bearer_token
 
   - id: log_audit
-    type: db
+    type: api
     purpose: Write audit log entry for the batch operation
     runtime:
       engine: postgres

@@ -31,7 +31,7 @@ nodes:
     description: "在編輯器中開啟轉換後的 .osop。檢查流程是否與原始工作流程相符。必要時調整。"
 
   - id: "publish"
-    type: "mcp"
+    type: "agent"
     name: "新增至 SOP Doc"
     description: "轉換後的工作流程現在是 .osop 檔案。將它加入你的 SOP Doc 集合。與其他 SOP 一起瀏覽。"
 

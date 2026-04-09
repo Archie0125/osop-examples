@@ -6,7 +6,7 @@ name: Customer Query Routing and Handoff
 
 nodes:
   - id: customer_query
-    type: system
+    type: api
     purpose: Receive and normalize incoming customer query
     runtime:
       tool: message-queue
@@ -29,7 +29,7 @@ nodes:
     explain: "Fast, cheap model for classification. Falls back to human if confidence < 0.7."
 
   - id: router
-    type: system
+    type: api
     subtype: router
     purpose: Route query to the appropriate specialist based on classification
     runtime:

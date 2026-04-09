@@ -13,7 +13,7 @@ nodes:
       command: "osop run workflow.osop.yaml --allow-exec --log"
 
   - id: "record"
-    type: "system"
+    type: "api"
     name: "產生 .osoplog"
     description: "自動產生執行記錄。每個節點：時間戳記、持續時間、成本、使用工具、AI 模型、Token 數、人工決策、錯誤。"
 
@@ -42,7 +42,7 @@ nodes:
       approval_gate: true
 
   - id: "apply"
-    type: "mcp"
+    type: "agent"
     name: "套用最佳化的 .osop"
     description: "最佳化的 .osop 成為新的基準。下次執行使用此版本。循環繼續。"
 

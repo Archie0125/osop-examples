@@ -31,7 +31,7 @@ nodes:
     description: "Open the converted .osop in the editor. Check that the flow matches your original workflow. Adjust if needed."
 
   - id: "publish"
-    type: "mcp"
+    type: "agent"
     name: "Add to SOP Doc"
     description: "The converted workflow is now an .osop file. Add it to your SOP Doc collection. Browse alongside your other SOPs."
 

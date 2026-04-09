@@ -6,7 +6,7 @@ name: Data Migration Workflow
 
 nodes:
   - id: snapshot_source
-    type: db
+    type: api
     purpose: Create consistent point-in-time snapshot of source database
     runtime:
       engine: postgresql
@@ -61,7 +61,7 @@ nodes:
       backoff_sec: 60
 
   - id: load_target
-    type: db
+    type: api
     purpose: Bulk load transformed data into target database with foreign key validation
     runtime:
       engine: postgresql

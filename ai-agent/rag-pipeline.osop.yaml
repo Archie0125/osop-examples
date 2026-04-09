@@ -42,7 +42,7 @@ nodes:
     timeout_sec: 90
 
   - id: store_vectors
-    type: db
+    type: api
     purpose: Store embeddings in vector database for similarity search
     runtime:
       engine: pgvector
@@ -63,7 +63,7 @@ nodes:
       - user_query
 
   - id: retrieve_context
-    type: db
+    type: api
     purpose: Retrieve top-k relevant chunks using cosine similarity
     runtime:
       engine: pgvector

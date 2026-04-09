@@ -80,7 +80,7 @@ nodes:
       - validation_summary
 
   - id: generate_report
-    type: system
+    type: api
     purpose: Generate HTML test report with pass/fail breakdown and timings
     runtime:
       tool: test-reporter

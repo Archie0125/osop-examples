@@ -73,7 +73,7 @@ nodes:
       why: SSH keys are required for git push and server access
 
   - id: clone_repos
-    type: git
+    type: cli
     purpose: Clone team repositories into the workspace directory
     runtime:
       action: clone

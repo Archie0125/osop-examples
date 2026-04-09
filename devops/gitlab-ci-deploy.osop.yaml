@@ -6,7 +6,7 @@ name: GitLab CI Docker to Kubernetes Deploy
 
 nodes:
   - id: ci_trigger
-    type: cicd
+    type: cli
     purpose: Trigger pipeline on merge to main
     subtype: gitlab-ci
     runtime:
@@ -16,7 +16,7 @@ nodes:
     outputs: [commit_sha, project_name]
 
   - id: docker_build
-    type: docker
+    type: cli
     purpose: Build Docker image from Dockerfile
     runtime:
       action: build
@@ -31,7 +31,7 @@ nodes:
       both the commit SHA (for traceability) and latest.
 
   - id: docker_scan
-    type: docker
+    type: cli
     purpose: Scan built image for vulnerabilities
     runtime:
       action: scan
@@ -42,7 +42,7 @@ nodes:
     timeout_sec: 180
 
   - id: docker_push
-    type: docker
+    type: cli
     purpose: Push image to GitLab container registry
     runtime:
       action: push
@@ -53,7 +53,7 @@ nodes:
       credentials_source: ci_variables
 
   - id: k8s_deploy
-    type: infra
+    type: cli
     purpose: Deploy image to Kubernetes cluster via kubectl
     runtime:
       tool: kubectl
@@ -67,7 +67,7 @@ nodes:
       Uses kustomize overlays for environment-specific config.
 
   - id: k8s_rollout_check
-    type: infra
+    type: cli
     purpose: Wait for rollout to complete and verify pod health
     runtime:
       tool: kubectl

@@ -29,7 +29,7 @@ nodes:
       why: Faster triage reduces MTTR — AI handles P3/P4 without waking humans
 
   - id: severity_router
-    type: system
+    type: api
     subtype: router
     purpose: Route incident based on AI-assessed severity level
     inputs: [severity]

@@ -6,7 +6,7 @@ name: Docker Build and Push Pipeline
 
 nodes:
   - id: checkout
-    type: cicd
+    type: cli
     purpose: Check out source code and determine build metadata
     subtype: github-actions
     runtime:

@@ -71,7 +71,7 @@ nodes:
     outputs: [mentor_id]
 
   - id: parallel_join
-    type: system
+    type: api
     subtype: join
     purpose: Wait for all parallel provisioning steps to complete
     inputs: [asset_tag, email_address, training_plan_id, mentor_id]

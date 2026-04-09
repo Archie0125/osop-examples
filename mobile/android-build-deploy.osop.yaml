@@ -7,7 +7,7 @@ name: Android Build & Deploy Pipeline
 
 nodes:
   - id: checkout
-    type: git
+    type: cli
     purpose: Clone repository and checkout release branch
     runtime:
       action: checkout
@@ -37,7 +37,7 @@ nodes:
     timeout_sec: 300
 
   - id: instrumented_tests
-    type: cicd
+    type: cli
     purpose: Run Espresso instrumented tests on emulator farm
     runtime:
       platform: firebase_test_lab

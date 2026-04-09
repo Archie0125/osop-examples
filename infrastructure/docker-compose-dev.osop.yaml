@@ -6,7 +6,7 @@ name: Docker Compose Development Environment Setup
 
 nodes:
   - id: pull_images
-    type: docker
+    type: cli
     purpose: Pull latest images for all development services
     runtime:
       action: compose-pull
@@ -16,7 +16,7 @@ nodes:
     timeout_sec: 300
 
   - id: start_services
-    type: docker
+    type: cli
     purpose: Start all services via docker compose
     runtime:
       action: compose-up
@@ -53,7 +53,7 @@ nodes:
     timeout_sec: 30
 
   - id: run_migrations
-    type: db
+    type: api
     purpose: Run database migrations to set up schema
     runtime:
       engine: postgresql
@@ -64,7 +64,7 @@ nodes:
     timeout_sec: 120
 
   - id: seed_data
-    type: db
+    type: api
     purpose: Seed database with development sample data
     runtime:
       engine: postgresql

@@ -17,49 +17,49 @@ nodes:
     description: Identified 7 targets from TARGETS.md — awesome lists and platform registries.
 
   - id: pr-windsurf
-    type: git
+    type: cli
     subtype: pr
     name: "PR: awesome-windsurf #288"
     description: "Added OSOP session logging prompt. Devin AI reviewed with 4+2+1 issues across 3 rounds."
     purpose: Add OSOP to Windsurf ecosystem
 
   - id: pr-cursorrules
-    type: git
+    type: cli
     subtype: pr
     name: "PR: awesome-cursorrules #219"
     description: "Added OSOP session logging rule. CodeRabbit found 'windsurf' should be 'cursor' — fixed."
     purpose: Add OSOP to Cursor ecosystem
 
   - id: pr-rules
-    type: git
+    type: cli
     subtype: pr
     name: "PR: awesome-rules #12"
     description: "Added OSOP session logging rule for Continue. GitGuardian passed, no issues."
     purpose: Add OSOP to Continue ecosystem
 
   - id: pr-cli-agents
-    type: git
+    type: cli
     subtype: pr
     name: "PR: awesome-cli-coding-agents #28"
     description: "Added OSOP entry. Owner asked to add star count for sorting — fixed."
     purpose: Add OSOP to CLI agents list
 
   - id: pr-openclaw
-    type: git
+    type: cli
     subtype: pr
     name: "PR: openclaw #58974"
     description: "Added OSOP workflow skills. Greptile found P1: block inserted in wrong section — fixed."
     purpose: Add OSOP skills to OpenClaw registry
 
   - id: pr-anthropic
-    type: git
+    type: cli
     subtype: pr
     name: "PR: anthropics/knowledge-work-plugins #159"
     description: "Added OSOP plugin to partner-built section. No reviews yet, waiting."
     purpose: Get OSOP into Anthropic's official plugin list
 
   - id: pr-mcp-servers
-    type: git
+    type: cli
     subtype: pr
     name: "PR: awesome-mcp-servers #3983"
     description: "Added OSOP MCP Server. Bot requires Glama AAA score badge — added badge, needs Glama registration."

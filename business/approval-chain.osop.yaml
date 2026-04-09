@@ -27,7 +27,7 @@ nodes:
       timeout_hours: 48
 
   - id: amount_router
-    type: system
+    type: api
     subtype: router
     purpose: Route based on request amount threshold
     inputs: [amount, manager_decision]
@@ -48,7 +48,7 @@ nodes:
       timeout_hours: 72
 
   - id: auto_approve
-    type: system
+    type: api
     subtype: action
     purpose: Auto-approve requests under $5,000 that passed manager review
     inputs: [request_id, manager_decision]

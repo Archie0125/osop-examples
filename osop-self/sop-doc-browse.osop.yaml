@@ -18,12 +18,12 @@ nodes:
       command: "osop validate workflow.osop.yaml"
 
   - id: "visual_browse"
-    type: "mcp"
+    type: "agent"
     name: "Browse in SOP Doc"
     description: "Open osop.ai/sop-doc. Each workflow shows two tabs: Visual (flow diagram with colored node dots) and .osop (full YAML). Search, filter by source."
 
   - id: "open_editor"
-    type: "mcp"
+    type: "agent"
     name: "Open in Visual Editor"
     description: "Click 'Open in Editor' to see the interactive node graph. Drag nodes. 5 view modes: graph, story, role, agent, code. Built-in risk analysis."
 

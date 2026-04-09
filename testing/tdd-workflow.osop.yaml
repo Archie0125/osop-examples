@@ -62,7 +62,7 @@ nodes:
     timeout_sec: 120
 
   - id: commit
-    type: git
+    type: cli
     purpose: Commit the passing test and implementation
     runtime:
       action: commit

@@ -6,7 +6,7 @@ name: Model Evaluation and Promotion Pipeline
 
 nodes:
   - id: load_test_data
-    type: db
+    type: api
     purpose: Load held-out test dataset from the data warehouse
     runtime:
       engine: bigquery
@@ -38,7 +38,7 @@ nodes:
       - metric_results
 
   - id: load_baseline
-    type: db
+    type: api
     purpose: Fetch baseline metrics from the model registry
     runtime:
       engine: postgres
@@ -72,7 +72,7 @@ nodes:
       - eval_report
 
   - id: promote_model
-    type: system
+    type: api
     purpose: Promote candidate model to production in the model registry
     runtime:
       tool: model-registry-cli
@@ -82,7 +82,7 @@ nodes:
       - promotion_status
 
   - id: rollback_alert
-    type: system
+    type: api
     purpose: Send alert that candidate model did not pass evaluation
     runtime:
       tool: pagerduty

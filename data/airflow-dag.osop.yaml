@@ -6,7 +6,7 @@ name: Airflow-Style Data Processing DAG
 
 nodes:
   - id: file_sensor
-    type: system
+    type: api
     purpose: Wait for upstream data file to appear in S3 landing zone
     runtime:
       tool: s3-sensor
@@ -28,7 +28,7 @@ nodes:
       - staged_data
 
   - id: transform_users
-    type: data
+    type: cli
     purpose: Transform and enrich user dimension data
     runtime:
       engine: spark
@@ -41,7 +41,7 @@ nodes:
       - users_table
 
   - id: transform_events
-    type: data
+    type: cli
     purpose: Transform and aggregate event fact data
     runtime:
       engine: spark
@@ -54,7 +54,7 @@ nodes:
       - events_table
 
   - id: transform_metrics
-    type: data
+    type: cli
     purpose: Compute daily business metrics from events
     runtime:
       engine: spark
@@ -67,7 +67,7 @@ nodes:
       - metrics_table
 
   - id: load_warehouse
-    type: db
+    type: api
     purpose: Load all transformed tables into the data warehouse
     runtime:
       engine: bigquery
@@ -80,7 +80,7 @@ nodes:
       - load_status
 
   - id: quality_check
-    type: data
+    type: cli
     purpose: Run data quality assertions on loaded tables
     runtime:
       engine: dbt

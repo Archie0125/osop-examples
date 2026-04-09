@@ -23,7 +23,7 @@ nodes:
     timeout_sec: 120
 
   - id: clean_data
-    type: data
+    type: cli
     purpose: Remove duplicates, handle nulls, and fix encoding issues
     runtime:
       engine: spark
@@ -36,7 +36,7 @@ nodes:
       - cleaned_data
 
   - id: normalize
-    type: data
+    type: cli
     purpose: Normalize fields, convert types, and apply business rules
     runtime:
       engine: spark
@@ -59,7 +59,7 @@ nodes:
       - validation_result
 
   - id: load_warehouse
-    type: db
+    type: api
     purpose: Load validated data into the analytics warehouse
     runtime:
       engine: bigquery

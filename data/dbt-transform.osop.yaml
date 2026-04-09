@@ -6,7 +6,7 @@ name: dbt Model Build and Deploy
 
 nodes:
   - id: dbt_deps
-    type: data
+    type: cli
     purpose: Install dbt package dependencies
     runtime:
       engine: dbt
@@ -18,7 +18,7 @@ nodes:
       - deps_status
 
   - id: dbt_run
-    type: data
+    type: cli
     purpose: Run all dbt models to build tables and views
     runtime:
       engine: dbt
@@ -37,7 +37,7 @@ nodes:
       backoff_sec: 30
 
   - id: dbt_test
-    type: data
+    type: cli
     purpose: Run dbt tests to validate data quality and integrity
     runtime:
       engine: dbt
@@ -72,7 +72,7 @@ nodes:
       - deploy_status
 
   - id: notify_team
-    type: system
+    type: api
     purpose: Send Slack notification with run summary and doc link
     runtime:
       tool: slack-webhook

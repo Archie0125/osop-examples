@@ -16,7 +16,7 @@ ledger:
 
 nodes:
   - id: collect_data
-    type: db
+    type: api
     purpose: Gather ESG data from internal and external sources
     runtime:
       engine: postgresql
@@ -100,7 +100,7 @@ nodes:
       credentials: [SEC_FILING_KEY, CSRD_CERT]
 
   - id: archive
-    type: git
+    type: cli
     purpose: Commit final report and supporting data to compliance repository
     runtime:
       action: commit

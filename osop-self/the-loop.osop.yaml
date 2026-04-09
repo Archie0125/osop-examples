@@ -13,7 +13,7 @@ nodes:
       command: "osop run workflow.osop.yaml --allow-exec --log"
 
   - id: "record"
-    type: "system"
+    type: "api"
     name: ".osoplog Generated"
     description: "Execution record produced automatically. Every node: timestamps, duration, cost, tools used, AI model, tokens, human decisions, errors."
 
@@ -42,7 +42,7 @@ nodes:
       approval_gate: true
 
   - id: "apply"
-    type: "mcp"
+    type: "agent"
     name: "Apply Optimized .osop"
     description: "The optimized .osop becomes the new baseline. Next execution uses this version. The loop continues."
 

@@ -6,7 +6,7 @@ name: Cypress E2E Test Pipeline
 
 nodes:
   - id: setup_env
-    type: docker
+    type: cli
     purpose: Spin up application stack for E2E testing
     runtime:
       action: compose-up
@@ -77,7 +77,7 @@ nodes:
     inputs: [report_url, exit_code]
 
   - id: teardown
-    type: docker
+    type: cli
     purpose: Tear down test environment containers
     runtime:
       action: compose-down

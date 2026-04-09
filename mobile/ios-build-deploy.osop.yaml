@@ -7,7 +7,7 @@ name: iOS Build & Deploy Pipeline
 
 nodes:
   - id: checkout
-    type: git
+    type: cli
     purpose: Clone repository and checkout target branch
     runtime:
       action: checkout
@@ -41,7 +41,7 @@ nodes:
       backoff_sec: 30
 
   - id: run_tests
-    type: cicd
+    type: cli
     purpose: Execute unit and UI test suites
     runtime:
       platform: xcode

@@ -6,7 +6,7 @@ name: Jenkins Multi-Stage Build and Deploy Pipeline
 
 nodes:
   - id: scm_checkout
-    type: git
+    type: cli
     purpose: Checkout source code from repository
     runtime:
       action: clone
@@ -52,7 +52,7 @@ nodes:
       backoff_sec: 10
 
   - id: archive_artifacts
-    type: cicd
+    type: cli
     purpose: Archive build artifacts and test reports in Jenkins
     subtype: jenkins
     runtime:
@@ -62,7 +62,7 @@ nodes:
     inputs: [build_artifact, test_report, integration_report]
 
   - id: deploy
-    type: cicd
+    type: cli
     purpose: Deploy artifact to target environment via Jenkins pipeline
     subtype: jenkins
     runtime:
@@ -75,7 +75,7 @@ nodes:
     timeout_sec: 300
 
   - id: tag_release
-    type: git
+    type: cli
     purpose: Tag the commit with the release version
     runtime:
       action: tag

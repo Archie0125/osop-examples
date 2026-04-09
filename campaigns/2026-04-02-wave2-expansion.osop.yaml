@@ -17,7 +17,7 @@ nodes:
     description: "Picked repos from TARGETS.md that hadn't been submitted yet."
 
   - id: pr-camel
-    type: git
+    type: cli
     subtype: pr
     name: "PR: camel-ai/camel #3983 — CLOSED"
     description: >
@@ -27,42 +27,42 @@ nodes:
     purpose: "6k stars — multi-agent role-playing"
 
   - id: pr-kestra
-    type: git
+    type: cli
     subtype: pr
     name: "PR: kestra-io/kestra #15371"
     description: "ETL pipeline example. Welcome bot greeted, CI passed. Waiting for review."
     purpose: "12k stars — YAML-native orchestrator (philosophy-aligned)"
 
   - id: pr-windmill
-    type: git
+    type: cli
     subtype: pr
     name: "PR: windmill-labs/windmill #8670"
     description: "API data sync workflow. CLA check failed — needs signature."
     purpose: "10k stars — YAML workflow builder"
 
   - id: pr-triggerdev
-    type: git
+    type: cli
     subtype: pr
     name: "PR: triggerdotdev/trigger.dev #3314"
     description: "Background job pipeline. CodeRabbit + Devin reviewed, all passed."
     purpose: "10k stars — Modern job orchestration"
 
   - id: pr-awesome-langchain
-    type: git
+    type: cli
     subtype: pr
     name: "PR: kyrolabs/awesome-langchain #274"
     description: "Added langchain-osop entry. No CI, waiting for review."
     purpose: "LangChain ecosystem directory"
 
   - id: pr-awesome-n8n
-    type: git
+    type: cli
     subtype: pr
     name: "PR: restyler/awesome-n8n #28"
     description: "Added n8n-nodes-osop entry. GitGuardian passed."
     purpose: "n8n ecosystem directory"
 
   - id: pr-awesome-argo
-    type: git
+    type: cli
     subtype: pr
     name: "PR: akuity/awesome-argo #101"
     description: "Added osop-interop Argo converter. No CI configured."

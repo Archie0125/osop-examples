@@ -23,7 +23,7 @@ nodes:
       Creates a point-in-time snapshot for audit trail.
 
   - id: correlate_hr_data
-    type: db
+    type: api
     purpose: Join access data with HR records to identify role, department, and employment status
     runtime:
       engine: postgresql

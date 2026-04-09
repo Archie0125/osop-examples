@@ -6,7 +6,7 @@ name: Kubernetes Build and Deploy Pipeline
 
 nodes:
   - id: build_image
-    type: docker
+    type: cli
     purpose: Build application Docker image with version tag
     runtime:
       action: build
@@ -19,7 +19,7 @@ nodes:
     timeout_sec: 600
 
   - id: push_to_ecr
-    type: docker
+    type: cli
     purpose: Push Docker image to AWS ECR registry
     runtime:
       action: push
@@ -33,7 +33,7 @@ nodes:
       Image is scanned automatically by ECR on push.
 
   - id: update_manifests
-    type: infra
+    type: cli
     purpose: Update Kubernetes manifests with new image tag
     runtime:
       tool: kustomize
@@ -44,7 +44,7 @@ nodes:
     outputs: [rendered_manifests]
 
   - id: apply_manifests
-    type: infra
+    type: cli
     purpose: Apply updated manifests to Kubernetes cluster
     runtime:
       tool: kubectl
@@ -56,7 +56,7 @@ nodes:
     timeout_sec: 120
 
   - id: rollout_status
-    type: infra
+    type: cli
     purpose: Monitor deployment rollout until complete
     runtime:
       tool: kubectl
@@ -85,7 +85,7 @@ nodes:
     timeout_sec: 60
 
   - id: rollback
-    type: infra
+    type: cli
     purpose: Rollback deployment if health check fails
     runtime:
       tool: kubectl

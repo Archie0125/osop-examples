@@ -6,7 +6,7 @@ name: Ansible Server Provisioning and Configuration
 
 nodes:
   - id: inventory_check
-    type: infra
+    type: cli
     purpose: Validate Ansible inventory and test host connectivity
     runtime:
       tool: ansible
@@ -32,7 +32,7 @@ nodes:
     timeout_sec: 300
 
   - id: run_playbook
-    type: infra
+    type: cli
     purpose: Execute the provisioning playbook on target hosts
     runtime:
       tool: ansible
@@ -78,7 +78,7 @@ nodes:
     timeout_sec: 120
 
   - id: configure_monitoring
-    type: infra
+    type: cli
     purpose: Register hosts with monitoring and alerting systems
     runtime:
       tool: ansible

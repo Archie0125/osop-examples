@@ -16,7 +16,7 @@ nodes:
     timeout_sec: 10
 
   - id: check_inventory
-    type: db
+    type: api
     purpose: Check real-time inventory availability for all order line items
     runtime:
       engine: postgresql
@@ -29,7 +29,7 @@ nodes:
       location based on stock availability and shipping distance.
 
   - id: reserve_stock
-    type: db
+    type: api
     purpose: Place inventory hold to prevent overselling during fulfillment
     runtime:
       engine: postgresql

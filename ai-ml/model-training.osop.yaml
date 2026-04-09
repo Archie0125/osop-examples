@@ -6,7 +6,7 @@ name: ML Model Training Pipeline
 
 nodes:
   - id: prepare_data
-    type: data
+    type: cli
     purpose: Fetch raw data, split into train/val/test sets, and apply feature engineering
     runtime:
       engine: spark

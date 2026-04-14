@@ -41,7 +41,7 @@ node_records:
       notes: "Interested in post-quantum cryptography standards"
 
   - node_id: "search_web"
-    node_type: "mcp"
+    node_type: "agent"
     attempt: 1
     status: "COMPLETED"
     started_at: "2026-04-01T09:00:01Z"

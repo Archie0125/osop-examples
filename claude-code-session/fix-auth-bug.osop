@@ -1,105 +1,112 @@
-osop_version: "1.0"
-id: "claude-code-fix-auth-bug"
-name: "Fix Authentication Race Condition"
-description: "Claude Code debugs and fixes a token refresh race condition using sub-agent exploration and coordinated fix."
-version: "1.0.0"
-tags: [claude-code, debugging, sub-agent, auth]
-
+osop_version: '1.0'
+id: claude-code-fix-auth-bug
+name: Fix Authentication Race Condition
+description: Claude Code debugs and fixes a token refresh race condition using sub-agent exploration and coordinated fix.
+version: 1.0.0
+tags:
+  - claude-code
+  - debugging
+  - sub-agent
+  - auth
 nodes:
-  - id: "user_report"
-    type: "human"
-    subtype: "input"
-    name: "User Reports Bug"
-    description: "User reports intermittent auth token refresh failures in production."
-
-  - id: "coordinator"
-    type: "agent"
-    subtype: "coordinator"
-    name: "Plan Investigation"
-    description: "Main agent plans the debugging approach and spawns 3 exploration workers in parallel."
+  - id: user_report
+    type: human
+    subtype: input
+    name: User Reports Bug
+    description: User reports intermittent auth token refresh failures in production.
+    purpose: User reports intermittent auth token refresh failures in production.
+  - id: coordinator
+    type: agent
+    subtype: coordinator
+    name: Plan Investigation
+    description: Main agent plans the debugging approach and spawns 3 exploration workers in parallel.
     spawn_policy:
       max_children: 5
-      child_tools: ["Read", "Grep", "Glob", "Bash"]
+      child_tools:
+        - Read
+        - Grep
+        - Glob
+        - Bash
       can_spawn_children: false
-
-  - id: "explore_auth"
-    type: "agent"
-    subtype: "explore"
-    name: "Explore Auth Module"
-    description: "Sub-agent reads auth-related files to understand token refresh flow."
-    parent: "coordinator"
-
-  - id: "explore_tests"
-    type: "agent"
-    subtype: "explore"
-    name: "Explore Test Coverage"
-    description: "Sub-agent checks existing test coverage for auth module."
-    parent: "coordinator"
-
-  - id: "explore_logs"
-    type: "agent"
-    subtype: "explore"
-    name: "Search Error Patterns"
-    description: "Sub-agent searches git history and error logs for related issues."
-    parent: "coordinator"
-
-  - id: "synthesize"
-    type: "agent"
-    subtype: "llm"
-    name: "Synthesize & Decide"
-    description: "Main agent synthesizes all sub-agent findings, identifies root cause, and chooses fix strategy."
-
-  - id: "write_fix"
-    type: "mcp"
-    subtype: "tool"
-    name: "Write Fix"
-    description: "Apply mutex lock to prevent concurrent token refresh calls."
-
-  - id: "write_test"
-    type: "mcp"
-    subtype: "tool"
-    name: "Write Regression Test"
-    description: "Add test for concurrent refresh scenario."
-
-  - id: "run_tests"
-    type: "cicd"
-    subtype: "test"
-    name: "Run Test Suite"
-    description: "Execute full test suite to verify fix doesn't break anything."
-
-  - id: "user_review"
-    type: "human"
-    subtype: "review"
-    name: "User Reviews Changes"
-    description: "User reviews the fix and test before committing."
-
+    purpose: Main agent plans the debugging approach and spawns 3 exploration workers in parallel.
+  - id: explore_auth
+    type: agent
+    subtype: explore
+    name: Explore Auth Module
+    description: Sub-agent reads auth-related files to understand token refresh flow.
+    parent: coordinator
+    purpose: Sub-agent reads auth-related files to understand token refresh flow.
+  - id: explore_tests
+    type: agent
+    subtype: explore
+    name: Explore Test Coverage
+    description: Sub-agent checks existing test coverage for auth module.
+    parent: coordinator
+    purpose: Sub-agent checks existing test coverage for auth module.
+  - id: explore_logs
+    type: agent
+    subtype: explore
+    name: Search Error Patterns
+    description: Sub-agent searches git history and error logs for related issues.
+    parent: coordinator
+    purpose: Sub-agent searches git history and error logs for related issues.
+  - id: synthesize
+    type: agent
+    subtype: llm
+    name: Synthesize & Decide
+    description: Main agent synthesizes all sub-agent findings, identifies root cause, and chooses fix strategy.
+    purpose: Main agent synthesizes all sub-agent findings, identifies root cause, and chooses fix strategy.
+  - id: write_fix
+    type: agent
+    subtype: tool
+    name: Write Fix
+    description: Apply mutex lock to prevent concurrent token refresh calls.
+    purpose: Apply mutex lock to prevent concurrent token refresh calls.
+  - id: write_test
+    type: agent
+    subtype: tool
+    name: Write Regression Test
+    description: Add test for concurrent refresh scenario.
+    purpose: Add test for concurrent refresh scenario.
+  - id: run_tests
+    type: cli
+    subtype: test
+    name: Run Test Suite
+    description: Execute full test suite to verify fix doesn't break anything.
+    purpose: Execute full test suite to verify fix doesn't break anything.
+  - id: user_review
+    type: human
+    subtype: review
+    name: User Reviews Changes
+    description: User reviews the fix and test before committing.
+    purpose: User reviews the fix and test before committing.
 edges:
-  - from: "user_report"
-    to: "coordinator"
-  - from: "coordinator"
-    to: "explore_auth"
-    mode: "spawn"
-  - from: "coordinator"
-    to: "explore_tests"
-    mode: "spawn"
-  - from: "coordinator"
-    to: "explore_logs"
-    mode: "spawn"
-  - from: "explore_auth"
-    to: "synthesize"
-  - from: "explore_tests"
-    to: "synthesize"
-  - from: "explore_logs"
-    to: "synthesize"
-  - from: "synthesize"
-    to: "write_fix"
-  - from: "write_fix"
-    to: "write_test"
-  - from: "write_test"
-    to: "run_tests"
-  - from: "run_tests"
-    to: "user_review"
-  - from: "run_tests"
-    to: "write_fix"
-    mode: "fallback"
-    label: "Tests failed, revise fix"
+  - from: user_report
+    to: coordinator
+  - from: coordinator
+    to: explore_auth
+    mode: spawn
+  - from: coordinator
+    to: explore_tests
+    mode: spawn
+  - from: coordinator
+    to: explore_logs
+    mode: spawn
+  - from: explore_auth
+    to: synthesize
+  - from: explore_tests
+    to: synthesize
+  - from: explore_logs
+    to: synthesize
+  - from: synthesize
+    to: write_fix
+  - from: write_fix
+    to: write_test
+  - from: write_test
+    to: run_tests
+  - from: run_tests
+    to: user_review
+  - from: run_tests
+    to: write_fix
+    mode: fallback
+    label: Tests failed, revise fix

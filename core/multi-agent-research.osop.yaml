@@ -1,59 +1,66 @@
-osop_version: "1.0"
-id: "multi-agent-research"
-name: "Multi-Agent Research Pipeline"
-description: "Multiple AI agents research different aspects in parallel, then a coordinator synthesizes findings."
-tags: [ai-agent, multi-agent, research]
-
+osop_version: '1.0'
+id: multi-agent-research
+name: Multi-Agent Research Pipeline
+description: Multiple AI agents research different aspects in parallel, then a coordinator synthesizes findings.
+tags:
+  - ai-agent
+  - multi-agent
+  - research
 nodes:
-  - id: "define-question"
-    type: "human"
-    subtype: "input"
-    name: "Define Research Question"
-
-  - id: "research-web"
-    type: "agent"
-    subtype: "llm"
-    name: "Web Research Agent"
+  - id: define-question
+    type: human
+    subtype: input
+    name: Define Research Question
+    purpose: Define Research Question
+  - id: research-web
+    type: agent
+    subtype: llm
+    name: Web Research Agent
     runtime:
-      provider: "anthropic"
-      model: "claude-sonnet-4-20250514"
-      tools: ["web_search", "web_fetch"]
-      system_prompt: "Search the web for recent information on the given topic."
-
-  - id: "research-code"
-    type: "agent"
-    subtype: "llm"
-    name: "Code Research Agent"
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      tools:
+        - web_search
+        - web_fetch
+      system_prompt: Search the web for recent information on the given topic.
+    purpose: Web Research Agent
+  - id: research-code
+    type: agent
+    subtype: llm
+    name: Code Research Agent
     runtime:
-      provider: "anthropic"
-      model: "claude-sonnet-4-20250514"
-      tools: ["Grep", "Read", "Glob"]
-      system_prompt: "Search the codebase for relevant implementations and patterns."
-
-  - id: "synthesize"
-    type: "agent"
-    subtype: "llm"
-    name: "Synthesis Agent"
+      provider: anthropic
+      model: claude-sonnet-4-20250514
+      tools:
+        - Grep
+        - Read
+        - Glob
+      system_prompt: Search the codebase for relevant implementations and patterns.
+    purpose: Code Research Agent
+  - id: synthesize
+    type: agent
+    subtype: llm
+    name: Synthesis Agent
     runtime:
-      provider: "anthropic"
-      model: "claude-opus-4-6"
-      system_prompt: "Synthesize findings from multiple research agents into a coherent report."
-
-  - id: "review"
-    type: "human"
-    subtype: "review"
-    name: "Review Research Report"
-
+      provider: anthropic
+      model: claude-opus-4-6
+      system_prompt: Synthesize findings from multiple research agents into a coherent report.
+    purpose: Synthesis Agent
+  - id: review
+    type: human
+    subtype: review
+    name: Review Research Report
+    purpose: Review Research Report
 edges:
-  - from: "define-question"
-    to: "research-web"
-    mode: "parallel"
-  - from: "define-question"
-    to: "research-code"
-    mode: "parallel"
-  - from: "research-web"
-    to: "synthesize"
-  - from: "research-code"
-    to: "synthesize"
-  - from: "synthesize"
-    to: "review"
+  - from: define-question
+    to: research-web
+    mode: parallel
+  - from: define-question
+    to: research-code
+    mode: parallel
+  - from: research-web
+    to: synthesize
+  - from: research-code
+    to: synthesize
+  - from: synthesize
+    to: review

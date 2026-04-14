@@ -1,76 +1,79 @@
-osop_version: "1.0"
-id: "contributing-osop-examples"
-name: "Contributing OSOP Examples"
-description: "How to add new .osop workflow examples to the OSOP examples repository."
-version: "1.0.0"
-status: "active"
-usage: "reference"
-tags: [meta, dogfooding, contributing, examples]
-
+osop_version: '1.0'
+id: contributing-osop-examples
+name: Contributing OSOP Examples
+description: How to add new .osop workflow examples to the OSOP examples repository.
+version: 1.0.0
+status: active
+usage: reference
+tags:
+  - meta
+  - dogfooding
+  - contributing
+  - examples
 nodes:
-  - id: "choose-domain"
-    type: "human"
-    name: "Choose Domain"
-    description: "Pick a domain for your example: ai-agent, api, business, data, devops, infrastructure, mobile, platform, testing, or propose a new category."
-
-  - id: "write-osop"
-    type: "human"
-    name: "Write .osop File"
-    description: "Create your workflow definition in YAML. Follow naming convention: domain/descriptive-name.osop.yaml. Include at least 3 nodes, proper edge modes, and security metadata."
-
-  - id: "validate"
-    type: "cicd"
-    subtype: "test"
-    name: "Validate"
-    description: "Run osop validate on your file to ensure it passes schema validation."
+  - id: choose-domain
+    type: human
+    name: Choose Domain
+    description: 'Pick a domain for your example: ai-agent, api, business, data, devops, infrastructure, mobile, platform, testing, or propose a new category.'
+    purpose: 'Pick a domain for your example: ai-agent, api, business, data, devops, infrastructure, mobile, platform, testing, or propose a new category.'
+  - id: write-osop
+    type: human
+    name: Write .osop File
+    description: 'Create your workflow definition in YAML. Follow naming convention: domain/descriptive-name.osop.yaml. Include at least 3 nodes, proper edge modes, and security metadata.'
+    purpose: 'Create your workflow definition in YAML. Follow naming convention: domain/descriptive-name.osop.yaml. Include at least 3 nodes, proper edge modes, and security metadata.'
+  - id: validate
+    type: cli
+    subtype: test
+    name: Validate
+    description: Run osop validate on your file to ensure it passes schema validation.
     timeout_sec: 30
-
-  - id: "test-in-editor"
-    type: "human"
-    name: "Test in Editor"
-    description: "Open your .osop file at osop-editor.vercel.app. Verify it renders correctly in Graph, Story, and Agent views."
-
-  - id: "submit-pr"
-    type: "git"
-    subtype: "pr"
-    name: "Submit PR"
-    description: "Create PR. Include: what the workflow does, which domain it belongs to, and a screenshot from the editor."
-
-  - id: "review"
-    type: "human"
-    subtype: "review"
-    name: "Review"
-    description: "Maintainer checks: valid YAML, correct node types, meaningful edge modes, useful description."
+    purpose: Run osop validate on your file to ensure it passes schema validation.
+  - id: test-in-editor
+    type: human
+    name: Test in Editor
+    description: Open your .osop file at osop-editor.vercel.app. Verify it renders correctly in Graph, Story, and Agent views.
+    purpose: Open your .osop file at osop-editor.vercel.app. Verify it renders correctly in Graph, Story, and Agent views.
+  - id: submit-pr
+    type: git
+    subtype: pr
+    name: Submit PR
+    description: 'Create PR. Include: what the workflow does, which domain it belongs to, and a screenshot from the editor.'
+    purpose: 'Create PR. Include: what the workflow does, which domain it belongs to, and a screenshot from the editor.'
+  - id: review
+    type: human
+    subtype: review
+    name: Review
+    description: 'Maintainer checks: valid YAML, correct node types, meaningful edge modes, useful description.'
     approval_gate:
       required: true
       min_approvals: 1
-
-  - id: "merge"
-    type: "git"
-    subtype: "commit"
-    name: "Merge"
-    description: "Example added to the collection."
-
+    purpose: 'Maintainer checks: valid YAML, correct node types, meaningful edge modes, useful description.'
+  - id: merge
+    type: git
+    subtype: commit
+    name: Merge
+    description: Example added to the collection.
+    purpose: Example added to the collection.
 edges:
-  - from: "choose-domain"
-    to: "write-osop"
-    mode: "sequential"
-  - from: "write-osop"
-    to: "validate"
-    mode: "sequential"
-  - from: "validate"
-    to: "test-in-editor"
-    mode: "sequential"
-  - from: "validate"
-    to: "write-osop"
-    mode: "fallback"
-    label: "Validation failed — fix"
-  - from: "test-in-editor"
-    to: "submit-pr"
-    mode: "sequential"
-  - from: "submit-pr"
-    to: "review"
-    mode: "sequential"
-  - from: "review"
-    to: "merge"
-    mode: "sequential"
+  - from: choose-domain
+    to: write-osop
+    mode: sequential
+  - from: write-osop
+    to: validate
+    mode: sequential
+  - from: validate
+    to: test-in-editor
+    mode: sequential
+  - from: validate
+    to: write-osop
+    mode: fallback
+    label: Validation failed — fix
+  - from: test-in-editor
+    to: submit-pr
+    mode: sequential
+  - from: submit-pr
+    to: review
+    mode: sequential
+  - from: review
+    to: merge
+    mode: sequential

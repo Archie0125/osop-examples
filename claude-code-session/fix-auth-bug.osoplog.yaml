@@ -183,7 +183,7 @@ node_records:
       confidence: 0.92
 
   - node_id: "write_fix"
-    node_type: "mcp"
+    node_type: "agent"
     attempt: 1
     status: "COMPLETED"
     started_at: "2026-04-01T14:01:15Z"
@@ -202,7 +202,7 @@ node_records:
           - { file: "src/auth/token.ts", lines_changed: 12, description: "Added mutex guard to refreshToken()" }
 
   - node_id: "write_test"
-    node_type: "mcp"
+    node_type: "agent"
     attempt: 1
     status: "COMPLETED"
     started_at: "2026-04-01T14:01:45Z"
@@ -219,7 +219,7 @@ node_records:
           - { file: "test/auth/token.test.ts", lines_changed: 28, description: "Added concurrent refresh test with Promise.all" }
 
   - node_id: "run_tests"
-    node_type: "cicd"
+    node_type: "cli"
     attempt: 1
     status: "COMPLETED"
     started_at: "2026-04-01T14:02:10Z"

@@ -15,17 +15,17 @@ cd osop-examples
 osop validate devops/github-actions-cicd.osop.yaml
 
 # Dry-run (see what would execute, no side effects)
-osop run demo/simple-agent-chain.osop.yaml --dry-run
+osop record demo/simple-agent-chain.osop.yaml --dry-run
 
 # Real execution with LLM calls (requires ANTHROPIC_API_KEY)
 export ANTHROPIC_API_KEY=sk-ant-...
-osop run demo/simple-agent-chain.osop.yaml
+osop record demo/simple-agent-chain.osop.yaml
 
 # Execute CLI nodes (requires explicit opt-in)
-osop run devops/github-actions-cicd.osop.yaml --allow-exec
+osop record devops/github-actions-cicd.osop.yaml --allow-exec
 
 # Generate execution log
-osop run demo/simple-agent-chain.osop.yaml --log output.osoplog.yaml
+osop record demo/simple-agent-chain.osop.yaml --log output.osoplog.yaml
 ```
 
 ### Security
@@ -39,7 +39,7 @@ osop run demo/simple-agent-chain.osop.yaml --log output.osoplog.yaml
 The `demo/simple-agent-chain.osop.yaml` runs a 3-agent chain: generate an idea, critique it, refine it. Each node calls Claude and passes output to the next.
 
 ```bash
-osop run demo/simple-agent-chain.osop.yaml
+osop record demo/simple-agent-chain.osop.yaml
 ```
 
 ## Examples by Domain
